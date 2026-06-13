@@ -2710,14 +2710,6 @@ body.weather-snow .city-chip  { color:#1e293b; }
 }
 
 @media (max-width: 600px) {
-  .detail-modal.summary-large {
-    max-width: 400px !important;
-    max-height: 75vh !important;
-    width: 90% !important;
-    overflow-y: auto !important;
-    overscroll-behavior: contain;
-    touch-action: pan-y;
-  }
   .summary-large .detail-stats-row {
     grid-template-columns: repeat(2, 1fr) !important;
   }
