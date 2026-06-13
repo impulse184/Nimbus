@@ -2691,11 +2691,33 @@ body.weather-snow .city-chip  { color:#1e293b; }
   line-height: 1.5;
 }
 
+/* ─── Summary Large Modal Override ─── */
+.detail-modal.summary-large {
+  max-width: 820px !important;
+  max-height: 95vh !important;
+  width: 95% !important;
+}
+
 .summary-large .detail-stats-row {
   grid-template-columns: repeat(3, 1fr) !important;
 }
 
+@media (max-width: 950px) {
+  .detail-modal.summary-large {
+    max-width: 520px !important;
+    width: 100% !important;
+  }
+}
+
 @media (max-width: 600px) {
+  .detail-modal.summary-large {
+    max-width: 400px !important;
+    max-height: 75vh !important;
+    width: 90% !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
   .summary-large .detail-stats-row {
     grid-template-columns: repeat(2, 1fr) !important;
   }
