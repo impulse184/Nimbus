@@ -1,0 +1,4 @@
+# Exclude backup/versioned files
+*v[0-9]*.js
+*v[0-9]*.css
+*v[0-9]*.html

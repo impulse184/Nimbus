@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nimbus — Private Database Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0c16;
+      --card-bg: rgba(30, 41, 59, 0.4);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --accent-blue: #60a5fa;
+      --accent-gold: #fbbf24;
+      --success: #10b981;
+      --danger: #ef4444;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      background-image: radial-gradient(circle at 10% 20%, rgba(26, 32, 73, 0.7) 0%, rgba(11, 12, 22, 1) 90%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-sizing: border-box;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 650px;
+      width: 100%;
+      text-align: center;
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      padding: 32px 28px;
+      box-sizing: border-box;
+      margin-top: 24px;
+      text-align: left;
+    }
+
+    h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 32px;
+      font-weight: 800;
+      margin: 0;
+      background: linear-gradient(135deg, #fff 30%, var(--accent-blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin: 6px 0 0;
+    }
+
+    .label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    input, textarea {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--text-primary);
+      outline: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      transition: var(--transition);
+      box-sizing: border-box;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent-blue);
+      background: rgba(255, 255, 255, 0.07);
+      box-shadow: 0 0 10px rgba(96, 165, 250, 0.15);
+    }
+
+    .btn {
+      background: var(--accent-blue);
+      color: #0b0c16;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: 0 4px 14px rgba(96, 165, 250, 0.3);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(96, 165, 250, 0.45);
+      background: #93c5fd;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #0b0c16;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-success:hover {
+      background: #34d399;
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    }
+
+    code {
+      font-family: monospace;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent-blue);
+      font-size: 13px;
+    }
+
+    .key-info-box {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+      font-size: 13.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .db-section {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 18px;
+    }
+
+    .db-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .db-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .db-api-link {
+      font-size: 12px;
+      color: var(--accent-blue);
+      text-decoration: underline;
+    }
+
+    .preview-box {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+      background: rgba(0, 0, 0, 0.15);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div style="font-size: 40px; margin-bottom: 10px;">🗄️</div>
+    <h1>Nimbus Database Manager</h1>
+    <p class="subtitle">Private Administration & Maintenance Console</p>
+
+    <!-- Email Selector Card -->
+    <div class="glass-card">
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px;">
+        <label for="emailInput" class="label">Select Account Email Address</label>
+        <div style="display: flex; gap: 12px;">
+          <input type="email" id="emailInput" placeholder="user@example.com" value="" style="flex: 1;" />
+          <button id="loadBtn" class="btn">
+            🔄 Load Live Records
+          </button>
+        </div>
+      </div>
+
+      <!-- Connection status & Ping -->
+      <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 12px 16px; border-radius: 12px; margin-bottom: 20px;">
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          Database CORS Connected
+        </div>
+        <div style="font-size: 12px; color: var(--text-secondary); font-weight: 600;">
+          Latency: <span id="pingTime" style="color: var(--accent-blue);">-- ms</span>
+        </div>
+      </div>
+
+      <!-- Namespace Info -->
+      <div class="key-info-box">
+        <span style="color: var(--text-secondary); font-weight: 500;">Namespace App Key:</span>
+        <code>nimbus_weather_app_db_2026</code>
+      </div>
+      <div class="key-info-box" style="border: none; margin: 0; padding: 0;">
+        <span style="color: var(--text-secondary); font-weight: 500;">User Safe Key Prefix:</span>
+        <code id="userKeyPrefix">nimbus_email_...</code>
+      </div>
+    </div>
+
+    <!-- Live Database Editor Card -->
+    <div class="glass-card" id="editorCard" style="display: none;">
+      <h2 style="font-family: 'Outfit', sans-serif; font-size: 20px; font-weight: 700; margin: 0 0 20px;">Live Data Editor</h2>
+
+      <!-- Pinned Cities Section -->
+      <div class="db-section">
+        <div class="db-header">
+          <span class="db-title">📌 Pinned Cities Key (`_pin`)</span>
+          <a id="linkPin" href="#" target="_blank" class="db-api-link">Open Raw API ↗</a>
+        </div>
+        <textarea id="inputPin" rows="2" placeholder="e.g. Tokyo,JP;Paris,FR"></textarea>
+        <div class="preview-box">
+          <strong>Grid Cards Preview:</strong>
+          <span id="previewPin" style="margin-left: 6px; color: var(--accent-gold);">None</span>
+        </div>
+      </div>
+
+      <!-- Recent Searches Section -->
+      <div class="db-section">
+        <div class="db-header">
+          <span class="db-title">⏱️ Recent Searches Key (`_rec`)</span>
+          <a id="linkRec" href="#" target="_blank" class="db-api-link">Open Raw API ↗</a>
+        </div>
+        <textarea id="inputRec" rows="2" placeholder="e.g. London,GB;New York,US"></textarea>
+        <div class="preview-box">
+          <strong>Recent Chips Preview:</strong>
+          <span id="previewRec" style="margin-left: 6px; color: var(--accent-gold);">None</span>
+        </div>
+      </div>
+
+      <!-- Password Reset Section -->
+      <div class="db-section">
+        <div class="db-header">
+          <span class="db-title">🔑 Password Hash Key (`_pwd`)</span>
+          <a id="linkPwd" href="#" target="_blank" class="db-api-link">Open Raw API ↗</a>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+          <div>
+            <span class="label" style="font-size: 11.5px; margin-bottom: 4px;">Raw SHA-256 Hash currently in database:</span>
+            <input type="text" id="inputPwd" placeholder="64-character SHA-256 hash" />
+          </div>
+          <div style="background: rgba(96,165,250,0.04); border: 1px solid rgba(96,165,250,0.1); border-radius: 10px; padding: 10px 12px;">
+            <span class="label" style="color: var(--accent-blue); font-size: 11.5px; margin-bottom: 4px;">🔑 Password Reset Assistant:</span>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="assistantPwdInput" placeholder="Type new plain-text password here" style="padding: 8px 12px; font-size: 13px;" />
+              <button id="hashAssistantBtn" class="btn btn-secondary" style="padding: 8px 14px; font-size: 12.5px; white-space: nowrap;">Generate Hash</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; display: flex; gap: 14px; justify-content: flex-end;">
+        <button id="revertBtn" class="btn btn-secondary">
+          ✕ Cancel & Revert
+        </button>
+        <button id="saveBtn" class="btn btn-success">
+          💾 Save Changes to Live Cloud DB
+        </button>
+      </div>
+    </div>
+
+    <div class="footer">
+      Nimbus Weather Intelligence — Admin Maintenance Console
+    </div>
+  </div>
+
+  <script>
+    // Elements
+    const emailInput          = document.getElementById('emailInput');
+    const loadBtn            = document.getElementById('loadBtn');
+    const pingTime           = document.getElementById('pingTime');
+    const userKeyPrefix      = document.getElementById('userKeyPrefix');
+    const editorCard         = document.getElementById('editorCard');
+    
+    const inputPin           = document.getElementById('inputPin');
+    const linkPin            = document.getElementById('linkPin');
+    const previewPin         = document.getElementById('previewPin');
+    
+    const inputRec           = document.getElementById('inputRec');
+    const linkRec            = document.getElementById('linkRec');
+    const previewRec         = document.getElementById('previewRec');
+    
+    const inputPwd           = document.getElementById('inputPwd');
+    const linkPwd            = document.getElementById('linkPwd');
+    
+    const assistantPwdInput  = document.getElementById('assistantPwdInput');
+    const hashAssistantBtn   = document.getElementById('hashAssistantBtn');
+    
+    const revertBtn          = document.getElementById('revertBtn');
+    const saveBtn            = document.getElementById('saveBtn');
+
+    let currentEmailKey = '';
+
+    // Generate safe key prefix from email
+    function getEmailKey(email) {
+      return 'nimbus_email_' + email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    }
+
+    // SHA-256 hasher using browser Web Crypto API
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hash = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Load data from immanuel.co
+    async function loadData() {
+      const email = emailInput.value.trim();
+      if (!email || !email.includes('@')) {
+        alert('Please enter a valid email address.');
+        return;
+      }
+
+      loadBtn.disabled = true;
+      loadBtn.textContent = '🔄 Fetching...';
+      
+      const emailKey = getEmailKey(email);
+      currentEmailKey = emailKey;
+      userKeyPrefix.textContent = emailKey;
+
+      const keyPin = `${emailKey}_pin`;
+      const keyRec = `${emailKey}_rec`;
+      const keyPwd = `${emailKey}_pwd`;
+
+      const pinUrl = `https://keyvalue.immanuel.co/api/KeyVal/GetValue/nimbus_weather_app_db_2026/${keyPin}`;
+      const recUrl = `https://keyvalue.immanuel.co/api/KeyVal/GetValue/nimbus_weather_app_db_2026/${keyRec}`;
+      const pwdUrl = `https://keyvalue.immanuel.co/api/KeyVal/GetValue/nimbus_weather_app_db_2026/${keyPwd}`;
+
+      // Construct links
+      linkPin.href = pinUrl;
+      linkRec.href = recUrl;
+      linkPwd.href = pwdUrl;
+
+      const startTime = performance.now();
+
+      try {
+        const [pinRes, recRes, pwdRes] = await Promise.all([
+          fetch(pinUrl).then(r => r.json()).catch(() => ''),
+          fetch(recUrl).then(r => r.json()).catch(() => ''),
+          fetch(pwdUrl).then(r => r.json()).catch(() => '')
+        ]);
+
+        const latency = Math.round(performance.now() - startTime);
+        pingTime.textContent = `${latency} ms`;
+
+        // Load into textareas
+        inputPin.value = (pinRes || '').replace(/^"|"$/g, '').trim();
+        inputRec.value = (recRes || '').replace(/^"|"$/g, '').trim();
+        inputPwd.value = (pwdRes || '').replace(/^"|"$/g, '').trim();
+
+        // Update previews
+        updatePreviews();
+
+        editorCard.style.display = 'block';
+        assistantPwdInput.value = '';
+      } catch (err) {
+        alert('Failed to connect to the database host. Check your internet connection.');
+        console.error(err);
+      } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = '🔄 Load Live Records';
+      }
+    }
+
+    // Save changes to database
+    async function saveChanges() {
+      if (!currentEmailKey) return;
+
+      const saveConfirm = confirm('Are you sure you want to write these modifications directly to the live production database?');
+      if (!saveConfirm) return;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = '💾 Saving...';
+
+      const keyPin = `${currentEmailKey}_pin`;
+      const keyRec = `${currentEmailKey}_rec`;
+      const keyPwd = `${currentEmailKey}_pwd`;
+
+      try {
+        await Promise.all([
+          saveKeyValue(keyPin, inputPin.value.trim()),
+          saveKeyValue(keyRec, inputRec.value.trim()),
+          saveKeyValue(keyPwd, inputPwd.value.trim())
+        ]);
+
+        alert('Database keys successfully updated live!');
+        loadData(); // Reload
+      } catch (err) {
+        alert('Failed to save changes: ' + err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Changes to Live Cloud DB';
+      }
+    }
+
+    async function saveKeyValue(key, value) {
+      const encodedVal = encodeURIComponent(value || '');
+      const saveUrl = `https://keyvalue.immanuel.co/api/KeyVal/UpdateValue/nimbus_weather_app_db_2026/${key}/${encodedVal}`;
+      const res = await fetch(saveUrl, { method: 'POST' });
+      if (!res.ok) throw new Error(`Failed to save key ${key}`);
+      return res;
+    }
+
+    // Update previews
+    function updatePreviews() {
+      const pinVal = inputPin.value.trim();
+      const recVal = inputRec.value.trim();
+
+      // Pinned
+      if (pinVal) {
+        const cities = pinVal.split(';').map(c => {
+          const parts = c.split(',');
+          return `📍 ${parts[0]}` + (parts[1] ? ` (${parts[1]})` : '');
+        }).join(', ');
+        previewPin.textContent = cities;
+      } else {
+        previewPin.textContent = '(None pinned)';
+      }
+
+      // Recent
+      if (recVal) {
+        const searches = recVal.split(';').map(c => {
+          const parts = c.split(',');
+          return `⏱️ ${parts[0]}`;
+        }).join(', ');
+        previewRec.textContent = searches;
+      } else {
+        previewRec.textContent = '(None searches recorded)';
+      }
+    }
+
+    // Hash assistant
+    async function runHashAssistant() {
+      const pwd = assistantPwdInput.value;
+      if (!pwd || pwd.length < 6) {
+        alert('Password must be at least 6 characters.');
+        return;
+      }
+      const hash = await hashPassword(pwd);
+      inputPwd.value = hash;
+      alert(`SHA-256 Hash successfully generated and loaded into the password input field:\n\n${hash}`);
+    }
+
+    // Event listeners
+    loadBtn.addEventListener('click', loadData);
+    emailInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') loadData();
+    });
+    
+    saveBtn.addEventListener('click', saveChanges);
+    revertBtn.addEventListener('click', loadData);
+    
+    hashAssistantBtn.addEventListener('click', runHashAssistant);
+    
+    inputPin.addEventListener('input', updatePreviews);
+    inputRec.addEventListener('input', updatePreviews);
+
+  </script>
+</body>
+</html>
