@@ -2706,10 +2706,14 @@ body.weather-snow .city-chip  { color:#1e293b; }
   .detail-modal.summary-large {
     max-width: 520px !important;
     width: 100% !important;
+    max-height: 90vh !important;
   }
 }
 
 @media (max-width: 600px) {
+  .detail-modal.summary-large {
+    max-height: 75vh !important;
+  }
   .summary-large .detail-stats-row {
     grid-template-columns: repeat(2, 1fr) !important;
   }
