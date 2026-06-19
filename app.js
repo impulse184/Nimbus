@@ -5218,38 +5218,63 @@ async function scanNearbyWeather(type) {
   }
 
   try {
-    const res = await fetch(`${BASE}/data/2.5/find?lat=${centerLat}&lon=${centerLon}&cnt=50&appid=${API_KEY}&units=metric`);
-    if (!res.ok) {
-      throw new Error('API request failed');
-    }
-    const data = await res.json();
-    if (data.cod !== "200" || !data.list) {
-      throw new Error(data.message || 'Unable to scan nearby weather');
+    // 1. Fetch local surrounding cities (find circle search)
+    // 2. Fetch global cities spanning various latitudes and polar zones to find real-time weather conditions globally
+    const localUrl = `${BASE}/data/2.5/find?lat=${centerLat}&lon=${centerLon}&cnt=50&appid=${API_KEY}&units=metric`;
+    const globalIds = '2643743,2988507,5128581,1850147,2147714,360630,524901,5879400,3133895,3413829,2729907,3833367,3874787,2013159,2037078,5913490,6183235,2028462,3421319,5983720,603913,5855927,1880252,5809844,2964574,658225,2673730,3369157,2163355,2867714';
+    const globalUrl = `${BASE}/data/2.5/group?id=${globalIds}&appid=${API_KEY}&units=metric`;
+
+    const [localRes, globalRes] = await Promise.all([
+      fetch(localUrl),
+      fetch(globalUrl)
+    ]);
+
+    if (!localRes.ok) throw new Error('Local scan failed');
+    const localData = await localRes.json();
+    
+    let globalData = { list: [] };
+    if (globalRes.ok) {
+      globalData = await globalRes.json();
     }
 
     const matchedCities = [];
-    data.list.forEach(item => {
-      const id = item.weather[0].id;
-      if (matchesWeatherType(id, type)) {
-        const dist = haversineDistance(centerLat, centerLon, item.coord.lat, item.coord.lon);
-        matchedCities.push({
-          name: item.name,
-          country: item.sys ? item.sys.country : '',
-          lat: item.coord.lat,
-          lon: item.coord.lon,
-          temp: item.main.temp,
-          id: id,
-          desc: item.weather[0].description,
-          distance: dist
-        });
-      }
-    });
+    const addedCityNames = new Set();
 
-    // If we have fewer than 2 results (e.g. searching snowy in a hot climate), fill using backup coordinates
+    // Parse helper
+    const addMatches = (list) => {
+      if (!list) return;
+      list.forEach(item => {
+        const id = item.weather[0].id;
+        const nameKey = item.name.toLowerCase();
+        if (matchesWeatherType(id, type) && !addedCityNames.has(nameKey)) {
+          addedCityNames.add(nameKey);
+          const dist = haversineDistance(centerLat, centerLon, item.coord.lat, item.coord.lon);
+          matchedCities.push({
+            name: item.name,
+            country: item.sys ? item.sys.country : '',
+            lat: item.coord.lat,
+            lon: item.coord.lon,
+            temp: item.main.temp,
+            id: id,
+            desc: item.weather[0].description,
+            distance: dist
+          });
+        }
+      });
+    };
+
+    // Add local matches first
+    addMatches(localData.list);
+    // Add global matches second
+    addMatches(globalData.list);
+
+    // If we have fewer than 2 results (e.g. searching snowy in a hot season or very dry climate), fill using backup coordinates
     if (matchedCities.length < 2) {
       const backups = BACKUP_EXPLORER_CITIES[type] || [];
       backups.forEach(backup => {
-        if (!matchedCities.some(c => c.name.toLowerCase() === backup.name.toLowerCase())) {
+        const nameKey = backup.name.toLowerCase();
+        if (!addedCityNames.has(nameKey)) {
+          addedCityNames.add(nameKey);
           const dist = haversineDistance(centerLat, centerLon, backup.lat, backup.lon);
           matchedCities.push({
             name: backup.name,
