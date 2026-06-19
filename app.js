@@ -426,6 +426,9 @@ function goHomeVisual() {
   
   // 5. Reset background and particle canvas effects to default homepage style
   setBackground(null, false, 20);
+  
+  // Reposition weather explorer widget to welcome screen
+  positionWeatherExplorer();
 }
 
 function goHome() {
@@ -781,6 +784,7 @@ function renderWeather(cur, fcast, uvData, aqiData) {
     explorerCenterName.textContent = cur.name;
   }
   resetExplorerResults();
+  positionWeatherExplorer();
   
   const tabRadarAstro = document.getElementById('tabRadarAstro');
   if (tabRadarAstro) tabRadarAstro.style.display = '';
@@ -5041,6 +5045,29 @@ function animateDashboardEntrance() {
    ATMOSPHERIC EXPLORER — WEATHER FINDER (Nimbus Intelligence)
    ═══════════════════════════════════════════════════════════════ */
 
+const BACKUP_EXPLORER_CITIES = {
+  sunny: [
+    { name: 'Cairo', country: 'EG', lat: 30.0444, lon: 31.2357, temp: 32, id: 800, desc: 'clear sky' },
+    { name: 'Sydney', country: 'AU', lat: -33.8688, lon: 151.2093, temp: 21, id: 800, desc: 'clear sky' },
+    { name: 'Los Angeles', country: 'US', lat: 34.0522, lon: -118.2437, temp: 26, id: 800, desc: 'clear sky' }
+  ],
+  rainy: [
+    { name: 'Bergen', country: 'NO', lat: 60.3913, lon: 5.3221, temp: 11, id: 501, desc: 'moderate rain' },
+    { name: 'Hilo', country: 'US', lat: 19.7241, lon: -155.0868, temp: 24, id: 500, desc: 'light rain' },
+    { name: 'Singapore', country: 'SG', lat: 1.3521, lon: 103.8198, temp: 27, id: 502, desc: 'heavy rain' }
+  ],
+  snowy: [
+    { name: 'Tromsø', country: 'NO', lat: 69.6492, lon: 18.9553, temp: -3, id: 601, desc: 'light snow' },
+    { name: 'Reykjavik', country: 'IS', lat: 64.1466, lon: -21.9426, temp: -1, id: 600, desc: 'light snow' },
+    { name: 'Anchorage', country: 'US', lat: 61.2181, lon: -149.9003, temp: -5, id: 601, desc: 'snow' }
+  ],
+  cloudy: [
+    { name: 'London', country: 'GB', lat: 51.5074, lon: -0.1278, temp: 15, id: 803, desc: 'broken clouds' },
+    { name: 'Seattle', country: 'US', lat: 47.6062, lon: -122.3321, temp: 14, id: 804, desc: 'overcast clouds' },
+    { name: 'Dublin', country: 'IE', lat: 53.3498, lon: -6.2603, temp: 13, id: 802, desc: 'scattered clouds' }
+  ]
+};
+
 function initWeatherExplorer() {
   const filterBtns = document.querySelectorAll('.explorer-filter-btn');
   filterBtns.forEach(btn => {
@@ -5056,6 +5083,7 @@ function initWeatherExplorer() {
       }
     });
   });
+  positionWeatherExplorer();
 }
 
 function resetExplorerResults() {
@@ -5102,26 +5130,84 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+function positionWeatherExplorer() {
+  const welcomeScreen = document.getElementById('welcomeScreen');
+  const weatherContent = document.getElementById('weatherContent');
+  const weatherExplorer = document.getElementById('weatherExplorer');
+  
+  if (!weatherExplorer) return;
+  
+  if (welcomeScreen && welcomeScreen.style.display !== 'none') {
+    welcomeScreen.appendChild(weatherExplorer);
+  } else if (weatherContent && weatherContent.style.display !== 'none') {
+    const forecastSections = weatherContent.querySelectorAll('.forecast-section');
+    if (forecastSections.length > 0) {
+      weatherContent.insertBefore(weatherExplorer, forecastSections[0]);
+    } else {
+      weatherContent.appendChild(weatherExplorer);
+    }
+  }
+}
+
 async function scanNearbyWeather(type) {
   const resultsEl = document.getElementById('explorerResults');
   const loadingEl = document.getElementById('explorerLoading');
   
-  if (!currentWeatherData) {
-    if (resultsEl) {
-      resultsEl.innerHTML = `
-        <div style="font-size: 12.5px; color: #ef4444; text-align: center; padding: 20px 0;">
-          Please search for a city first to set a reference location.
-        </div>
-      `;
+  let centerLat, centerLon, centerName;
+
+  if (currentWeatherData) {
+    centerLat = currentWeatherData.coord.lat;
+    centerLon = currentWeatherData.coord.lon;
+    centerName = currentWeatherData.name;
+  } else {
+    // Attempt auto-detect geolocation
+    if (loadingEl) {
+      loadingEl.style.display = 'flex';
+      const label = loadingEl.querySelector('span');
+      if (label) label.textContent = 'Detecting your location...';
     }
-    return;
+    if (resultsEl) resultsEl.innerHTML = '';
+
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 60000
+        });
+      });
+      centerLat = pos.coords.latitude;
+      centerLon = pos.coords.longitude;
+      centerName = 'Your Location';
+      
+      const explorerCenterName = document.getElementById('explorerCenterName');
+      if (explorerCenterName) {
+        explorerCenterName.textContent = centerName;
+      }
+    } catch (err) {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (resultsEl) {
+        let msg = "Please enable location services or search for a city first to set a reference location.";
+        if (err.code === err.PERMISSION_DENIED) {
+          msg = "Location access denied. Please allow location permission or search for a city first.";
+        }
+        resultsEl.innerHTML = `
+          <div style="font-size: 12.5px; color: #ef4444; text-align: center; padding: 20px 0;">
+            ${msg}
+          </div>
+        `;
+      }
+      const filterBtns = document.querySelectorAll('.explorer-filter-btn');
+      if (filterBtns) filterBtns.forEach(b => b.classList.remove('active'));
+      return;
+    }
   }
 
-  const centerLat = currentWeatherData.coord.lat;
-  const centerLon = currentWeatherData.coord.lon;
-  const centerName = currentWeatherData.name;
-
-  if (loadingEl) loadingEl.style.display = 'flex';
+  if (loadingEl) {
+    loadingEl.style.display = 'flex';
+    const label = loadingEl.querySelector('span');
+    if (label) label.textContent = 'Scanning neighboring coordinates...';
+  }
   if (resultsEl) resultsEl.innerHTML = '';
 
   if (API_KEY === 'demo') {
@@ -5159,6 +5245,26 @@ async function scanNearbyWeather(type) {
       }
     });
 
+    // If we have fewer than 2 results (e.g. searching snowy in a hot climate), fill using backup coordinates
+    if (matchedCities.length < 2) {
+      const backups = BACKUP_EXPLORER_CITIES[type] || [];
+      backups.forEach(backup => {
+        if (!matchedCities.some(c => c.name.toLowerCase() === backup.name.toLowerCase())) {
+          const dist = haversineDistance(centerLat, centerLon, backup.lat, backup.lon);
+          matchedCities.push({
+            name: backup.name,
+            country: backup.country,
+            lat: backup.lat,
+            lon: backup.lon,
+            temp: backup.temp,
+            id: backup.id,
+            desc: backup.desc,
+            distance: dist
+          });
+        }
+      });
+    }
+
     // Sort by distance
     matchedCities.sort((a, b) => a.distance - b.distance);
 
@@ -5177,7 +5283,7 @@ async function scanNearbyWeather(type) {
 
 function getMockNeighbors(centerName) {
   const nameLower = centerName.toLowerCase();
-  if (nameLower.includes('london')) {
+  if (nameLower.includes('london') || nameLower === 'your location') {
     return [
       { name: 'Watford', country: 'GB' },
       { name: 'Croydon', country: 'GB' },
@@ -5266,6 +5372,9 @@ function renderMockExplorerResults(type, centerLat, centerLon, centerName) {
       distance: dist
     });
   });
+
+  // Sort by distance
+  results.sort((a, b) => a.distance - b.distance);
 
   renderExplorerResultsList(results);
 }
