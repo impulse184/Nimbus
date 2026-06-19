@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=25.0.39" />
+  <link rel="stylesheet" href="style.css?v=25.0.40" />
   
   <!-- PWA & Mobile Web App Meta Tags -->
   <link rel="manifest" href="manifest.json" />
@@ -39,6 +39,7 @@
       </div>
       <!-- Nav tabs -->
       <nav class="nav-tabs" aria-label="App navigation">
+        <div class="nav-pill-indicator" id="navPillIndicator"></div>
         <button class="nav-tab active" id="tabWeather" data-tab="weather">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           Weather
@@ -627,7 +628,8 @@
     </div>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <script src="canvas.js"></script>
-  <script src="app.js?v=25.0.39"></script>
+  <script src="app.js?v=25.0.40"></script>
 </body>
 </html>

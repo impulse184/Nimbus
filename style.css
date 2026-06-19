@@ -167,6 +167,7 @@ body.weather-hot      { background: linear-gradient(to bottom, #7c2d12 0%, #b453
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 14px;
   padding: 4px;
+  position: relative;
 }
 .nav-tab {
   display: flex; align-items: center; gap: 7px;
@@ -178,15 +179,27 @@ body.weather-hot      { background: linear-gradient(to bottom, #7c2d12 0%, #b453
   font-family: 'Inter', sans-serif;
   font-size: 13px; font-weight: 600;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: color 0.2s ease;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 .nav-tab svg { flex-shrink: 0; }
-.nav-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.08); }
+.nav-tab:hover { color: var(--text-primary); }
 .nav-tab.active {
-  background: rgba(255,255,255,0.15);
+  background: transparent !important;
   color: var(--text-primary);
+  box-shadow: none !important;
+}
+.nav-pill-indicator {
+  position: absolute;
+  top: 4px; bottom: 4px; left: 4px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 0;
+  pointer-events: none;
+  will-change: left, width;
 }
 
 /* ─── Card tap hint ──────────────────────────────────────────── */
@@ -675,8 +688,7 @@ body.weather-hot      { background: linear-gradient(to bottom, #7c2d12 0%, #b453
   box-shadow: 0 4px 16px rgba(0,0,0,0.2);
 }
 
-/* ─── Main Weather Content ──────────────────────────────────── */
-.weather-content { animation: fadeUp 0.5s ease both; }
+.weather-content { animation: none; }
 @keyframes fadeUp {
   from { opacity:0; transform:translateY(24px); }
   to   { opacity:1; transform:translateY(0); }
@@ -1131,11 +1143,8 @@ body.weather-snow .city-chip  { color:#1e293b; }
   padding: 20px;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease-out;
 }
 .detail-overlay.open {
-  background: rgba(0,0,0,0.65);
-  opacity: 1;
   pointer-events: all;
 }
 

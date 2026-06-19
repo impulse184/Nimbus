@@ -394,7 +394,10 @@ function goHomeVisual() {
   // 1. Switch back to Weather page
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   const tabWeather = document.getElementById('tabWeather');
-  if (tabWeather) tabWeather.classList.add('active');
+  if (tabWeather) {
+    tabWeather.classList.add('active');
+    updateTabIndicator(tabWeather, false);
+  }
   
   const tabRadarAstro = document.getElementById('tabRadarAstro');
   if (tabRadarAstro) tabRadarAstro.style.display = 'none';
@@ -757,10 +760,6 @@ function renderWeather(cur, fcast, uvData, aqiData) {
   }
   isHistoryNavigating = false;
 
-  weatherContent.style.animation = 'none';
-  weatherContent.offsetHeight;
-  weatherContent.style.animation = 'fadeUp 0.5s ease both';
-
   // ─── Weather Data Consistency Harmonizer (Nimbus Intelligence) ───
   const weatherId = cur.weather[0].id;
   
@@ -1035,6 +1034,7 @@ function renderWeather(cur, fcast, uvData, aqiData) {
   // Update Astro Page data
   renderAstroPage();
 
+  animateDashboardEntrance();
 }
 
 /* ─── Temperature helpers ───────────────────────────────────── */
@@ -1434,6 +1434,7 @@ function spawnSunRays(count) {
 function spawnMoon() {
   const moon = document.createElement('div');
   moon.className = 'moon-celestial';
+  moon.style.opacity = '0';
   moon.innerHTML = `
     <div class="moon-glow"></div>
     <div class="moon-body">
@@ -1444,16 +1445,35 @@ function spawnMoon() {
     </div>
   `;
   particles.appendChild(moon);
+  anime({
+    targets: moon,
+    translateX: [100, 0],
+    translateY: [-50, 0],
+    scale: [0.5, 1],
+    opacity: [0, 1],
+    duration: 1800,
+    easing: 'easeOutElastic(1, 0.85)'
+  });
 }
 
 function spawnSun() {
   const sun = document.createElement('div');
   sun.className = 'sun-celestial';
+  sun.style.opacity = '0';
   sun.innerHTML = `
     <div class="sun-glow-floating"></div>
     <div class="sun-body-floating"></div>
   `;
   particles.appendChild(sun);
+  anime({
+    targets: sun,
+    translateX: [100, 0],
+    translateY: [-50, 0],
+    scale: [0.5, 1],
+    opacity: [0, 1],
+    duration: 1800,
+    easing: 'easeOutElastic(1, 0.85)'
+  });
 }
 
 function spawnHeatShimmer() {
@@ -1955,10 +1975,18 @@ function spawnHeatLinesOverlay(count) {
    NAV TABS
 ═══════════════════════════════════════════════════════════════ */
 function initNavTabs() {
+  const activeTab = document.querySelector('.nav-tab.active');
+  if (activeTab) {
+    setTimeout(() => updateTabIndicator(activeTab, true), 50);
+  }
+
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
+      
+      updateTabIndicator(tab, false);
+      
       const target = tab.dataset.tab;
       document.getElementById('pagWeather').style.display = target === 'weather' ? '' : 'none';
       document.getElementById('pagCompare').style.display = target === 'compare'  ? '' : 'none';
@@ -1971,6 +1999,11 @@ function initNavTabs() {
         stopAstroUpdates();
       }
     });
+  });
+
+  window.addEventListener('resize', () => {
+    const active = document.querySelector('.nav-tab.active');
+    if (active) updateTabIndicator(active, true);
   });
 }
 
@@ -2375,22 +2408,78 @@ function openDetailVisual(sourceCard) {
   document.body.style.overflow = 'hidden';
   if (detailModal) detailModal.scrollTop = 0;
 
-  // Premium uniform hardware-accelerated zoom pickup
-  detailModal.style.transition = 'none';
-  detailModal.style.transform = 'scale(0.92) translateY(24px)';
-  detailModal.style.opacity = '0';
-  
-  // Force reflow
-  detailModal.offsetHeight;
-  
   detailOverlay.classList.add('open');
   
-  requestAnimationFrame(() => {
-    detailModal.style.transition = 'transform 0.55s cubic-bezier(0.34, 1.76, 0.64, 1), opacity 0.4s ease';
-    detailModal.style.transform = 'scale(1) translateY(0)';
+  if (sourceCard) {
+    const first = sourceCard.getBoundingClientRect();
+    
+    // Set to final layout state immediately to calculate final rect
+    detailModal.style.transform = 'none';
     detailModal.style.opacity = '1';
-    setTimeout(updateModalScrollFade, 120);
-  });
+    
+    const last = detailModal.getBoundingClientRect();
+    
+    const deltaX = first.left - last.left;
+    const deltaY = first.top - last.top;
+    const deltaW = first.width / last.width;
+    const deltaH = first.height / last.height;
+    
+    detailModal.style.transformOrigin = '0 0';
+    
+    anime.remove(detailModal);
+    anime.remove(detailOverlay);
+    
+    anime({
+      targets: detailModal,
+      translateX: [deltaX, 0],
+      translateY: [deltaY, 0],
+      scaleX: [deltaW, 1],
+      scaleY: [deltaH, 1],
+      opacity: [0.3, 1],
+      duration: 500,
+      easing: 'cubicBezier(0.34, 1.56, 0.64, 1)',
+      complete: () => {
+        detailModal.style.transformOrigin = '';
+        detailModal.style.transform = '';
+        updateModalScrollFade();
+      }
+    });
+    
+    anime({
+      targets: detailOverlay,
+      backgroundColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.65)'],
+      opacity: [0, 1],
+      duration: 350,
+      easing: 'easeOutQuad'
+    });
+  } else {
+    // fallback if no sourceCard
+    anime.remove(detailModal);
+    anime.remove(detailOverlay);
+    
+    detailModal.style.transform = 'scale(0.92) translateY(24px)';
+    detailModal.style.opacity = '0';
+    
+    anime({
+      targets: detailModal,
+      scale: 1,
+      translateY: 0,
+      opacity: 1,
+      duration: 400,
+      easing: 'cubicBezier(0.25, 1, 0.5, 1)',
+      complete: () => {
+        updateModalScrollFade();
+      }
+    });
+    
+    anime({
+      targets: detailOverlay,
+      backgroundColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.65)'],
+      opacity: [0, 1],
+      duration: 350,
+      easing: 'easeOutQuad'
+    });
+  }
 }
 
 function openDetail(sourceCard) {
@@ -2399,21 +2488,83 @@ function openDetail(sourceCard) {
 }
 
 function closeDetailVisual() {
-  detailOverlay.classList.remove('open');
   stopDeviceCompass();
   
-  detailModal.style.transition = 'transform 0.35s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s ease';
-  detailModal.style.transform = 'scale(0.92) translateY(15px)';
-  detailModal.style.opacity = '0';
-  
-  setTimeout(() => {
-    detailOverlay.style.display = 'none';
-    document.body.style.overflow = '';
-    activeSourceCard = null;
-    detailModal.classList.remove('summary-large');
-    const shareContainer = document.getElementById('detailShareContainer');
-    if (shareContainer) shareContainer.style.display = 'none';
-  }, 280);
+  if (activeSourceCard) {
+    const current = detailModal.getBoundingClientRect();
+    const last = activeSourceCard.getBoundingClientRect();
+    
+    const targetX = last.left - current.left;
+    const targetY = last.top - current.top;
+    const targetW = last.width / current.width;
+    const targetH = last.height / current.height;
+    
+    detailModal.style.transformOrigin = '0 0';
+    
+    anime.remove(detailModal);
+    anime.remove(detailOverlay);
+    
+    anime({
+      targets: detailModal,
+      translateX: targetX,
+      translateY: targetY,
+      scaleX: targetW,
+      scaleY: targetH,
+      opacity: 0,
+      duration: 400,
+      easing: 'cubicBezier(0.25, 1, 0.5, 1)',
+      complete: () => {
+        detailOverlay.style.display = 'none';
+        detailOverlay.classList.remove('open');
+        document.body.style.overflow = '';
+        activeSourceCard = null;
+        detailModal.style.transformOrigin = '';
+        detailModal.style.transform = '';
+        detailModal.classList.remove('summary-large');
+        const shareContainer = document.getElementById('detailShareContainer');
+        if (shareContainer) shareContainer.style.display = 'none';
+      }
+    });
+    
+    anime({
+      targets: detailOverlay,
+      backgroundColor: 'rgba(0,0,0,0)',
+      opacity: 0,
+      duration: 300,
+      easing: 'easeInQuad'
+    });
+  } else {
+    // fallback
+    anime.remove(detailModal);
+    anime.remove(detailOverlay);
+    
+    anime({
+      targets: detailModal,
+      scale: 0.92,
+      translateY: 15,
+      opacity: 0,
+      duration: 300,
+      easing: 'cubicBezier(0.25, 1, 0.5, 1)',
+      complete: () => {
+        detailOverlay.style.display = 'none';
+        detailOverlay.classList.remove('open');
+        document.body.style.overflow = '';
+        activeSourceCard = null;
+        detailModal.style.transform = '';
+        detailModal.classList.remove('summary-large');
+        const shareContainer = document.getElementById('detailShareContainer');
+        if (shareContainer) shareContainer.style.display = 'none';
+      }
+    });
+    
+    anime({
+      targets: detailOverlay,
+      backgroundColor: 'rgba(0,0,0,0)',
+      opacity: 0,
+      duration: 300,
+      easing: 'easeInQuad'
+    });
+  }
 }
 
 function closeDetail() {
@@ -2577,7 +2728,7 @@ function rainGaugeSVG(pct, label, showPercentage = false) {
   const line3 = showPercentage ? '25%' : '5 mm';
   return `<div class="rain-gauge-wrap" style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%; margin: 10px 0;">
     <div style="position:relative; width:64px; height:100px; border:2.5px solid rgba(255,255,255,0.22); border-top:none; border-radius:0 0 14px 14px; background:rgba(255,255,255,0.04); overflow:hidden; box-shadow:inset 0 4px 16px rgba(0,0,0,0.15)">
-      <div id="rainGaugeFill" style="position:absolute; bottom:0; left:0; width:100%; height:0%; background:linear-gradient(to top, #2563eb, #60a5fa); transition: height 1.2s cubic-bezier(0.34, 1.56, 0.64, 1); opacity:0.85;">
+      <div id="rainGaugeFill" data-pct="${pct}" style="position:absolute; bottom:0; left:0; width:100%; height:0%; background:linear-gradient(to top, #2563eb, #60a5fa); opacity:0.85;">
         <div style="position:absolute; top:0; left:0; width:100%; height:4px; background:rgba(255,255,255,0.4); filter:blur(1px);"></div>
       </div>
       <div style="position:absolute; top:20px; left:0; width:100%; border-bottom:1px dashed rgba(255,255,255,0.18); text-align:right; font-size:8px; padding-right:6px; box-sizing:border-box; color:rgba(255,255,255,0.3)">${line1}</div>
@@ -2612,7 +2763,7 @@ function dropletSVG(pct, label, color1='#34d399', color2='#06b6d4') {
           <stop offset="0%" stop-color="${color1}"/><stop offset="100%" stop-color="${color2}"/></linearGradient>
       </defs>
       <path class="droplet-track" d="M50 8C50 8 16 54 16 78a34 34 0 0 0 68 0C84 54 50 8 50 8Z"/>
-      <rect x="0" y="${fillY}" width="100" height="${fillH+30}" fill="url(#dropGrad)" opacity="0.8"
+      <rect x="0" y="130" width="100" height="${fillH+30}" fill="url(#dropGrad)" opacity="0.8"
         clip-path="url(#dropClip)" id="dropFill" data-y="${fillY}"/>
       <path d="M50 8C50 8 16 54 16 78a34 34 0 0 0 68 0C84 54 50 8 50 8Z" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
       <text class="droplet-text" x="50" y="82">${label}</text>
@@ -2803,20 +2954,139 @@ function stopDeviceCompass() {
 }
 
 function animateVisuals() {
-  // Arc gauge
+  // 1. Humidity/UV arc gauge fill
   const arc = document.getElementById('arcFill');
-  if (arc) setTimeout(() => { arc.style.strokeDashoffset = arc.dataset.offset; }, 80);
-  // Horizon bar
+  if (arc) {
+    const strokeDasharray = parseFloat(arc.getAttribute('stroke-dasharray')) || 339.292;
+    const targetOffset = parseFloat(arc.dataset.offset) || 0;
+    arc.style.strokeDashoffset = strokeDasharray;
+    anime({
+      targets: arc,
+      strokeDashoffset: targetOffset,
+      duration: 1200,
+      easing: 'easeOutElastic(1, 0.75)'
+    });
+  }
+
+  // 2. Barometer arc fill
+  const baroFill = document.getElementById('baroFill');
+  if (baroFill) {
+    const strokeDasharray = parseFloat(baroFill.getAttribute('stroke-dasharray')) || 226.195;
+    const targetOffset = parseFloat(baroFill.dataset.offset) || 0;
+    baroFill.style.strokeDashoffset = strokeDasharray;
+    anime({
+      targets: baroFill,
+      strokeDashoffset: targetOffset,
+      duration: 1200,
+      easing: 'easeOutElastic(1, 0.75)'
+    });
+  }
+
+  // 3. Barometer needle
+  const baroNeedle = document.getElementById('baroNeedle');
+  if (baroNeedle) {
+    const targetDeg = parseFloat(baroNeedle.dataset.deg) || 0;
+    baroNeedle.style.transform = `rotate(-90deg)`;
+    anime({
+      targets: baroNeedle,
+      transform: [`rotate(-90deg)`, `rotate(${targetDeg}deg)`],
+      duration: 1400,
+      easing: 'easeOutElastic(1, 0.65)'
+    });
+  }
+
+  // 4. Horizon bar fill
   const hf = document.getElementById('horizFill');
-  if (hf) setTimeout(() => { hf.style.width = hf.dataset.pct + '%'; }, 80);
-  // Sun arc
+  if (hf) {
+    const targetPct = parseFloat(hf.dataset.pct) || 0;
+    hf.style.width = '0%';
+    anime({
+      targets: hf,
+      width: targetPct + '%',
+      duration: 1100,
+      easing: 'easeOutElastic(1, 0.8)'
+    });
+  }
+
+  // 5. Visibility bar fill
+  const vf = document.getElementById('visBarFill');
+  if (vf) {
+    const targetPct = parseFloat(vf.dataset.pct) || 0;
+    vf.style.width = '0%';
+    anime({
+      targets: vf,
+      width: targetPct + '%',
+      duration: 1100,
+      easing: 'easeOutElastic(1, 0.8)'
+    });
+  }
+
+  // 6. Precipitation rain gauge fill
+  const rgf = document.getElementById('rainGaugeFill');
+  if (rgf) {
+    const targetPct = parseFloat(rgf.dataset.pct) || 0;
+    rgf.style.height = '0%';
+    anime({
+      targets: rgf,
+      height: (targetPct * 100) + '%',
+      duration: 1200,
+      easing: 'easeOutElastic(1, 0.75)'
+    });
+  }
+
+  // 7. Dew point droplet fill
+  const df = document.getElementById('dropFill');
+  if (df) {
+    const targetY = parseFloat(df.dataset.y) || 12;
+    df.setAttribute('y', '130');
+    anime({
+      targets: df,
+      y: targetY,
+      duration: 1200,
+      easing: 'easeOutElastic(1, 0.75)'
+    });
+  }
+
+  // 8. Sun arc fill
   const sf = document.getElementById('sunFill');
-  if (sf) setTimeout(() => { sf.style.strokeDashoffset = sf.dataset.offset; }, 80);
-  // Big needle
+  if (sf) {
+    const strokeDasharray = parseFloat(sf.getAttribute('stroke-dasharray')) || 392.699;
+    const targetOffset = parseFloat(sf.dataset.offset) || 0;
+    sf.style.strokeDashoffset = strokeDasharray;
+    anime({
+      targets: sf,
+      strokeDashoffset: targetOffset,
+      duration: 1500,
+      easing: 'easeOutElastic(1, 0.85)'
+    });
+  }
+
+  // 9. Big compass needle
   const bn = document.getElementById('bigNeedle');
-  if (bn) setTimeout(() => {
-    bn.style.transform = `translate(-50%,-100%) rotate(${bn.dataset.deg}deg)`;
-  }, 120);
+  if (bn) {
+    const deg = parseFloat(bn.dataset.deg) || 0;
+    bn.style.transform = `translate(-50%,-100%) rotate(0deg)`;
+    anime({
+      targets: bn,
+      transform: [`translate(-50%,-100%) rotate(0deg)`, `translate(-50%,-100%) rotate(${deg}deg)`],
+      duration: 1500,
+      easing: 'easeOutElastic(1, 0.6)'
+    });
+  }
+  
+  // 10. AQI bands fill
+  const bandFills = document.querySelectorAll('.aqi-band-fill');
+  bandFills.forEach(fill => {
+    const targetPct = parseFloat(fill.dataset.pct) || 0;
+    fill.style.width = '0%';
+    anime({
+      targets: fill,
+      width: targetPct + '%',
+      duration: 1000,
+      delay: anime.stagger(80),
+      easing: 'easeOutElastic(1, 0.8)'
+    });
+  });
 }
 
 /* ── Wind direction name ── */
@@ -3128,11 +3398,6 @@ function openStatDetail(type, sourceCard) {
       
       detailMainVal.textContent  = mainValText;
       detailVisual.innerHTML     = rainGaugeSVG(pct, gaugeLabel, showPct);
-      setTimeout(() => {
-        const fill = document.getElementById('rainGaugeFill');
-        if (fill) fill.style.height = (pct * 100) + '%';
-      }, 80);
-      
       detailStats.innerHTML      = statsHTML;
       detailInsight.innerHTML    = insightHTML;
       break;
@@ -3216,10 +3481,6 @@ function openStatDetail(type, sourceCard) {
       detailSubtitle.textContent = 'Temperature at which dew forms';
       detailMainVal.textContent  = (isCelsius ? dp.toFixed(1)+'°C' : toF(dp).toFixed(1)+'°F');
       detailVisual.innerHTML     = dropletSVG(Math.min(Math.max((dp+10)/50, 0), 1), dp.toFixed(0)+'°');
-      setTimeout(() => {
-        const df = document.getElementById('dropFill');
-        if(df) df.setAttribute('y', df.dataset.y);
-      }, 80);
       detailStats.innerHTML      =
         pill('Air Temp', Math.round(isCelsius?cur.main.temp:toF(cur.main.temp))+u, 0) +
         pill('Spread', spread.toFixed(1)+'°', 1) +
@@ -4654,6 +4915,91 @@ if (heroCard) {
         e.preventDefault();
         openStatDetail('summary', heroCard);
       }
+    }
+  });
+}
+
+function updateTabIndicator(activeTab, immediate) {
+  const indicator = document.getElementById('navPillIndicator');
+  if (!indicator || !activeTab) return;
+  
+  const containerRect = activeTab.parentElement.getBoundingClientRect();
+  const tabRect = activeTab.getBoundingClientRect();
+  
+  const relativeLeft = tabRect.left - containerRect.left;
+  const relativeWidth = tabRect.width;
+  
+  if (immediate) {
+    indicator.style.left = `${relativeLeft}px`;
+    indicator.style.width = `${relativeWidth}px`;
+    indicator.style.transform = 'scaleX(1)';
+  } else {
+    anime.remove(indicator);
+    const currentLeft = parseFloat(indicator.style.left) || 0;
+    const currentWidth = parseFloat(indicator.style.width) || tabRect.width;
+    const direction = relativeLeft > currentLeft ? 'right' : 'left';
+    
+    if (direction === 'right') {
+      anime.timeline({
+        targets: indicator,
+        easing: 'cubicBezier(0.4, 0, 0.2, 1)'
+      })
+      .add({
+        width: relativeLeft + relativeWidth - currentLeft,
+        duration: 180,
+      })
+      .add({
+        left: relativeLeft,
+        width: relativeWidth,
+        duration: 180,
+      }, '-=60');
+    } else {
+      anime.timeline({
+        targets: indicator,
+        easing: 'cubicBezier(0.4, 0, 0.2, 1)'
+      })
+      .add({
+        left: relativeLeft,
+        width: currentLeft + currentWidth - relativeLeft,
+        duration: 180,
+      })
+      .add({
+        width: relativeWidth,
+        duration: 180,
+      }, '-=60');
+    }
+  }
+}
+
+function animateDashboardEntrance() {
+  const elements = [
+    document.getElementById('heroCard'),
+    ...document.querySelectorAll('#statsGrid .stat-card'),
+    document.getElementById('uvCard'),
+    document.getElementById('aqiCard'),
+    document.getElementById('lunarCard'),
+    document.getElementById('outfitCard'),
+    ...document.querySelectorAll('.forecast-section')
+  ].filter(el => el && el.style.display !== 'none');
+  
+  elements.forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(30px) scale(0.96)';
+  });
+  
+  anime({
+    targets: elements,
+    translateY: [30, 0],
+    scale: [0.96, 1],
+    opacity: [0, 1],
+    delay: anime.stagger(60, { start: 100 }),
+    duration: 800,
+    easing: 'cubicBezier(0.25, 1, 0.5, 1)',
+    complete: () => {
+      elements.forEach(el => {
+        el.style.transform = '';
+        el.style.opacity = '';
+      });
     }
   });
 }
