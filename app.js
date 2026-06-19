@@ -5045,28 +5045,6 @@ function animateDashboardEntrance() {
    ATMOSPHERIC EXPLORER — WEATHER FINDER (Nimbus Intelligence)
    ═══════════════════════════════════════════════════════════════ */
 
-const BACKUP_EXPLORER_CITIES = {
-  sunny: [
-    { name: 'Cairo', country: 'EG', lat: 30.0444, lon: 31.2357, temp: 32, id: 800, desc: 'clear sky' },
-    { name: 'Sydney', country: 'AU', lat: -33.8688, lon: 151.2093, temp: 21, id: 800, desc: 'clear sky' },
-    { name: 'Los Angeles', country: 'US', lat: 34.0522, lon: -118.2437, temp: 26, id: 800, desc: 'clear sky' }
-  ],
-  rainy: [
-    { name: 'Bergen', country: 'NO', lat: 60.3913, lon: 5.3221, temp: 11, id: 501, desc: 'moderate rain' },
-    { name: 'Hilo', country: 'US', lat: 19.7241, lon: -155.0868, temp: 24, id: 500, desc: 'light rain' },
-    { name: 'Singapore', country: 'SG', lat: 1.3521, lon: 103.8198, temp: 27, id: 502, desc: 'heavy rain' }
-  ],
-  snowy: [
-    { name: 'Tromsø', country: 'NO', lat: 69.6492, lon: 18.9553, temp: -3, id: 601, desc: 'light snow' },
-    { name: 'Reykjavik', country: 'IS', lat: 64.1466, lon: -21.9426, temp: -1, id: 600, desc: 'light snow' },
-    { name: 'Anchorage', country: 'US', lat: 61.2181, lon: -149.9003, temp: -5, id: 601, desc: 'snow' }
-  ],
-  cloudy: [
-    { name: 'London', country: 'GB', lat: 51.5074, lon: -0.1278, temp: 15, id: 803, desc: 'broken clouds' },
-    { name: 'Seattle', country: 'US', lat: 47.6062, lon: -122.3321, temp: 14, id: 804, desc: 'overcast clouds' },
-    { name: 'Dublin', country: 'IE', lat: 53.3498, lon: -6.2603, temp: 13, id: 802, desc: 'scattered clouds' }
-  ]
-};
 
 function initWeatherExplorer() {
   const filterBtns = document.querySelectorAll('.explorer-filter-btn');
@@ -5268,27 +5246,6 @@ async function scanNearbyWeather(type) {
     // Add global matches second
     addMatches(globalData.list);
 
-    // If we have fewer than 2 results (e.g. searching snowy in a hot season or very dry climate), fill using backup coordinates
-    if (matchedCities.length < 2) {
-      const backups = BACKUP_EXPLORER_CITIES[type] || [];
-      backups.forEach(backup => {
-        const nameKey = backup.name.toLowerCase();
-        if (!addedCityNames.has(nameKey)) {
-          addedCityNames.add(nameKey);
-          const dist = haversineDistance(centerLat, centerLon, backup.lat, backup.lon);
-          matchedCities.push({
-            name: backup.name,
-            country: backup.country,
-            lat: backup.lat,
-            lon: backup.lon,
-            temp: backup.temp,
-            id: backup.id,
-            desc: backup.desc,
-            distance: dist
-          });
-        }
-      });
-    }
 
     // Sort by distance
     matchedCities.sort((a, b) => a.distance - b.distance);
