@@ -608,14 +608,40 @@ function closeSuggestions() {
 }
 
 /* ─── Geolocation ───────────────────────────────────────────── */
+function getLocationIcon() {
+  return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
+}
+
 function useLocation() {
-  if (!navigator.geolocation) return;
+  if (!navigator.geolocation) {
+    alert("Geolocation is not supported by your browser or device.");
+    return;
+  }
+  
   locationBtn.innerHTML = '<div class="loader-ring" style="width:20px;height:20px;border-width:2px;margin:0"></div>';
+  locationBtn.disabled = true;
+  
   navigator.geolocation.getCurrentPosition(pos => {
-    locationBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="9" stroke-dasharray="2 4"/></svg>`;
+    locationBtn.innerHTML = getLocationIcon();
+    locationBtn.disabled = false;
     fetchWeatherByCoords(pos.coords.latitude, pos.coords.longitude);
-  }, () => {
-    locationBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="9" stroke-dasharray="2 4"/></svg>`;
+  }, err => {
+    locationBtn.innerHTML = getLocationIcon();
+    locationBtn.disabled = false;
+    
+    let msg = "Unable to retrieve location.";
+    if (err.code === err.PERMISSION_DENIED) {
+      msg = "Location permission denied. Please allow location access in settings.";
+    } else if (err.code === err.POSITION_UNAVAILABLE) {
+      msg = "Location details are unavailable.";
+    } else if (err.code === err.TIMEOUT) {
+      msg = "Location request timed out. Please try again.";
+    }
+    alert(msg);
+  }, {
+    enableHighAccuracy: false,
+    timeout: 10000,
+    maximumAge: 60000
   });
 }
 
