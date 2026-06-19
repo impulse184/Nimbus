@@ -131,8 +131,8 @@ class WeatherCanvas {
     this.ctx.clearRect(0, 0, this.width, this.height);
 
     if (this.activeType === 'rain') {
-      this.ctx.strokeStyle = 'rgba(174, 207, 238, 0.4)';
-      this.ctx.lineWidth = 1.2;
+      this.ctx.strokeStyle = 'rgba(156, 207, 255, 0.6)';
+      this.ctx.lineWidth = 1.6;
       for (let p of this.particles) {
         this.ctx.beginPath();
         this.ctx.globalAlpha = p.opacity;
@@ -141,10 +141,17 @@ class WeatherCanvas {
         this.ctx.stroke();
       }
     } else if (this.activeType === 'snow') {
-      this.ctx.fillStyle = '#ffffff';
       for (let p of this.particles) {
         this.ctx.beginPath();
         this.ctx.globalAlpha = p.opacity;
+        
+        // Draw soft glowing feathered snowflake using radial gradient
+        const grad = this.ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+        grad.addColorStop(0.3, 'rgba(255, 255, 255, 0.8)');
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        this.ctx.fillStyle = grad;
         this.ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         this.ctx.fill();
       }

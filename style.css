@@ -1668,7 +1668,7 @@ body.weather-snow .city-chip  { color:#1e293b; }
   top: 0; left: 0;
   width: 100vw; height: 100vh;
   pointer-events: none;
-  z-index: 1;
+  z-index: 5;
   transform: translate3d(0,0,0);
   backface-visibility: hidden;
 }
