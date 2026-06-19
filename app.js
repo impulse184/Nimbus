@@ -5198,22 +5198,28 @@ async function scanNearbyWeather(type) {
   try {
     // 1. Fetch local surrounding cities (find circle search)
     // 2. Fetch global cities spanning various latitudes and polar zones to find real-time weather conditions globally
+    // We split into two separate group API requests (20 cities each) to fully respect the 20-city limit per OWM group request
     const localUrl = `${BASE}/data/2.5/find?lat=${centerLat}&lon=${centerLon}&cnt=50&appid=${API_KEY}&units=metric`;
-    const globalIds = '2643743,2988507,5128581,1850147,2147714,360630,524901,5879400,3133895,3413829,2729907,3833367,3874787,2013159,2037078,5913490,6183235,2028462,3421319,5983720,603913,5855927,1880252,5809844,2964574,658225,2673730,3369157,2163355,2867714';
-    const globalUrl = `${BASE}/data/2.5/group?id=${globalIds}&appid=${API_KEY}&units=metric`;
+    const globalIds1 = '2643743,2988507,5128581,1850147,2147714,360630,524901,5879400,3133895,3413829,2729907,3833367,3874787,2013159,2037078,5913490,6183235,2028462,3421319,5983720';
+    const globalIds2 = '603913,5855927,1880252,5809844,2964574,658225,2673730,3369157,2163355,2867714,1275339,6173331,3143244,5419384,5037649,7626383,6051531,5880054,524305,2611396';
+    
+    const globalUrl1 = `${BASE}/data/2.5/group?id=${globalIds1}&appid=${API_KEY}&units=metric`;
+    const globalUrl2 = `${BASE}/data/2.5/group?id=${globalIds2}&appid=${API_KEY}&units=metric`;
 
-    const [localRes, globalRes] = await Promise.all([
+    const [localRes, globalRes1, globalRes2] = await Promise.all([
       fetch(localUrl),
-      fetch(globalUrl)
+      fetch(globalUrl1),
+      fetch(globalUrl2)
     ]);
 
     if (!localRes.ok) throw new Error('Local scan failed');
     const localData = await localRes.json();
     
-    let globalData = { list: [] };
-    if (globalRes.ok) {
-      globalData = await globalRes.json();
-    }
+    let globalData1 = { list: [] };
+    if (globalRes1.ok) globalData1 = await globalRes1.json();
+
+    let globalData2 = { list: [] };
+    if (globalRes2.ok) globalData2 = await globalRes2.json();
 
     const matchedCities = [];
     const addedCityNames = new Set();
@@ -5243,8 +5249,10 @@ async function scanNearbyWeather(type) {
 
     // Add local matches first
     addMatches(localData.list);
-    // Add global matches second
-    addMatches(globalData.list);
+    // Add global group 1 matches second
+    addMatches(globalData1.list);
+    // Add global group 2 matches third
+    addMatches(globalData2.list);
 
 
     // Sort by distance

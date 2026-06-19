@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nimbus-weather-cache-v40';
+const CACHE_NAME = 'nimbus-weather-cache-v41';
 const ASSETS = [
   './index.html',
   './style.css',
