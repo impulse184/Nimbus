@@ -776,6 +776,12 @@ function renderWeather(cur, fcast, uvData, aqiData) {
   welcomeScreen.style.display = 'none';
   weatherContent.style.display = 'block';
   
+  const explorerCenterName = document.getElementById('explorerCenterName');
+  if (explorerCenterName) {
+    explorerCenterName.textContent = cur.name;
+  }
+  resetExplorerResults();
+  
   const tabRadarAstro = document.getElementById('tabRadarAstro');
   if (tabRadarAstro) tabRadarAstro.style.display = '';
   
@@ -1877,6 +1883,7 @@ function aqiDesc(aqi) {
 init();
 initNavTabs();
 initCompare();
+initWeatherExplorer();
 
 /* ═══════════════════════════════════════════════════════════════
    LIGHT OVERLAY — sun beams render ON TOP of cards via mix-blend-mode:screen
@@ -5027,6 +5034,306 @@ function animateDashboardEntrance() {
         el.style.opacity = '';
       });
     }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ATMOSPHERIC EXPLORER — WEATHER FINDER (Nimbus Intelligence)
+   ═══════════════════════════════════════════════════════════════ */
+
+function initWeatherExplorer() {
+  const filterBtns = document.querySelectorAll('.explorer-filter-btn');
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const weatherType = btn.dataset.weather;
+      if (btn.classList.contains('active')) {
+        // Toggle off if already active
+        resetExplorerResults();
+      } else {
+        filterBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        scanNearbyWeather(weatherType);
+      }
+    });
+  });
+}
+
+function resetExplorerResults() {
+  const filterBtns = document.querySelectorAll('.explorer-filter-btn');
+  if (filterBtns) {
+    filterBtns.forEach(b => b.classList.remove('active'));
+  }
+  
+  const loadingEl = document.getElementById('explorerLoading');
+  if (loadingEl) loadingEl.style.display = 'none';
+  
+  const resultsEl = document.getElementById('explorerResults');
+  if (resultsEl) {
+    resultsEl.innerHTML = `
+      <div style="font-size: 12.5px; color: var(--text-secondary); text-align: center; padding: 20px 0;">
+        Select a weather condition above to scan nearby areas.
+      </div>
+    `;
+  }
+}
+
+function matchesWeatherType(id, type) {
+  if (type === 'sunny') {
+    return id === 800;
+  } else if (type === 'rainy') {
+    return id >= 200 && id < 600;
+  } else if (type === 'snowy') {
+    return id >= 600 && id < 700;
+  } else if (type === 'cloudy') {
+    return id > 800 && id < 900;
+  }
+  return false;
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+async function scanNearbyWeather(type) {
+  const resultsEl = document.getElementById('explorerResults');
+  const loadingEl = document.getElementById('explorerLoading');
+  
+  if (!currentWeatherData) {
+    if (resultsEl) {
+      resultsEl.innerHTML = `
+        <div style="font-size: 12.5px; color: #ef4444; text-align: center; padding: 20px 0;">
+          Please search for a city first to set a reference location.
+        </div>
+      `;
+    }
+    return;
+  }
+
+  const centerLat = currentWeatherData.coord.lat;
+  const centerLon = currentWeatherData.coord.lon;
+  const centerName = currentWeatherData.name;
+
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (resultsEl) resultsEl.innerHTML = '';
+
+  if (API_KEY === 'demo') {
+    // Simulate API delay for rich UX loader
+    await new Promise(resolve => setTimeout(resolve, 800));
+    renderMockExplorerResults(type, centerLat, centerLon, centerName);
+    return;
+  }
+
+  try {
+    const res = await fetch(`${BASE}/data/2.5/find?lat=${centerLat}&lon=${centerLon}&cnt=50&appid=${API_KEY}&units=metric`);
+    if (!res.ok) {
+      throw new Error('API request failed');
+    }
+    const data = await res.json();
+    if (data.cod !== "200" || !data.list) {
+      throw new Error(data.message || 'Unable to scan nearby weather');
+    }
+
+    const matchedCities = [];
+    data.list.forEach(item => {
+      const id = item.weather[0].id;
+      if (matchesWeatherType(id, type)) {
+        const dist = haversineDistance(centerLat, centerLon, item.coord.lat, item.coord.lon);
+        matchedCities.push({
+          name: item.name,
+          country: item.sys ? item.sys.country : '',
+          lat: item.coord.lat,
+          lon: item.coord.lon,
+          temp: item.main.temp,
+          id: id,
+          desc: item.weather[0].description,
+          distance: dist
+        });
+      }
+    });
+
+    // Sort by distance
+    matchedCities.sort((a, b) => a.distance - b.distance);
+
+    renderExplorerResultsList(matchedCities);
+  } catch (err) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (resultsEl) {
+      resultsEl.innerHTML = `
+        <div style="font-size: 12.5px; color: #ef4444; text-align: center; padding: 20px 0;">
+          Error scanning nearby weather: ${err.message || 'API key error'}. Try using Demo Mode.
+        </div>
+      `;
+    }
+  }
+}
+
+function getMockNeighbors(centerName) {
+  const nameLower = centerName.toLowerCase();
+  if (nameLower.includes('london')) {
+    return [
+      { name: 'Watford', country: 'GB' },
+      { name: 'Croydon', country: 'GB' },
+      { name: 'Slough', country: 'GB' },
+      { name: 'Guildford', country: 'GB' },
+      { name: 'Harlow', country: 'GB' },
+      { name: 'Reading', country: 'GB' }
+    ];
+  } else if (nameLower.includes('paris')) {
+    return [
+      { name: 'Versailles', country: 'FR' },
+      { name: 'Saint-Denis', country: 'FR' },
+      { name: 'Boulogne-Billancourt', country: 'FR' },
+      { name: 'Nanterre', country: 'FR' },
+      { name: 'Creteil', country: 'FR' }
+    ];
+  } else if (nameLower.includes('tokyo')) {
+    return [
+      { name: 'Yokohama', country: 'JP' },
+      { name: 'Kawasaki', country: 'JP' },
+      { name: 'Chiba', country: 'JP' },
+      { name: 'Saitama', country: 'JP' },
+      { name: 'Machida', country: 'JP' }
+    ];
+  } else if (nameLower.includes('new york') || nameLower.includes('york')) {
+    return [
+      { name: 'Newark', country: 'US' },
+      { name: 'Jersey City', country: 'US' },
+      { name: 'Yonkers', country: 'US' },
+      { name: 'Paterson', country: 'US' },
+      { name: 'Hoboken', country: 'US' }
+    ];
+  }
+  // Generic fallback based on center city name
+  return [
+    { name: `${centerName} Heights`, country: 'US' },
+    { name: `${centerName} Valley`, country: 'US' },
+    { name: `${centerName} North`, country: 'US' },
+    { name: `${centerName} West`, country: 'US' },
+    { name: `${centerName} East`, country: 'US' }
+  ];
+}
+
+function renderMockExplorerResults(type, centerLat, centerLon, centerName) {
+  const neighbors = getMockNeighbors(centerName);
+  const results = [];
+
+  neighbors.forEach((n, idx) => {
+    const angle = idx * (2 * Math.PI / neighbors.length) + 0.2;
+    const dist = 8 + idx * 7 + Math.random() * 4; // realistic offset distances
+    
+    // Convert dist in km to lat/lon offsets
+    const latOffset = (dist / 111) * Math.sin(angle);
+    const lonOffset = (dist / (111 * Math.cos(centerLat * Math.PI / 180))) * Math.cos(angle);
+    
+    const lat = centerLat + latOffset;
+    const lon = centerLon + lonOffset;
+
+    let temp, id, desc;
+    if (type === 'sunny') {
+      temp = 20 + Math.random() * 8;
+      id = 800;
+      desc = 'clear sky';
+    } else if (type === 'rainy') {
+      temp = 9 + Math.random() * 6;
+      id = 501;
+      desc = 'moderate rain';
+    } else if (type === 'snowy') {
+      temp = -4 + Math.random() * 4;
+      id = 601;
+      desc = 'light snow';
+    } else { // cloudy
+      temp = 14 + Math.random() * 5;
+      id = 803;
+      desc = 'broken clouds';
+    }
+
+    results.push({
+      name: n.name,
+      country: n.country,
+      lat: lat,
+      lon: lon,
+      temp: temp,
+      id: id,
+      desc: desc,
+      distance: dist
+    });
+  });
+
+  renderExplorerResultsList(results);
+}
+
+function renderExplorerResultsList(items) {
+  const resultsEl = document.getElementById('explorerResults');
+  const loadingEl = document.getElementById('explorerLoading');
+
+  if (loadingEl) loadingEl.style.display = 'none';
+  if (!resultsEl) return;
+
+  resultsEl.innerHTML = '';
+
+  if (items.length === 0) {
+    resultsEl.innerHTML = `
+      <div style="font-size: 12.5px; color: var(--text-secondary); text-align: center; padding: 20px 0;">
+        No nearby places found with this weather condition.
+      </div>
+    `;
+    return;
+  }
+
+  const unit = isCelsius ? '°C' : '°F';
+
+  items.forEach(item => {
+    const isNight = false; // default for explorer list items
+    const emoji = weatherEmoji(item.id, isNight);
+    const displayTemp = isCelsius ? item.temp : (item.temp * 9 / 5 + 32);
+
+    const row = document.createElement('div');
+    row.className = 'explorer-city-row';
+    row.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+        <span style="font-size: 20px;">${emoji}</span>
+        <div style="display: flex; flex-direction: column; min-width: 0;">
+          <span style="font-family: 'Outfit', sans-serif; font-size: 13.5px; font-weight: 600; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+            ${item.name}, ${item.country}
+          </span>
+          <span style="font-size: 11px; color: var(--text-secondary);">
+            ${item.distance.toFixed(1)} km away · ${item.desc}
+          </span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+        <span style="font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 700; color: var(--text-primary);">
+          ${Math.round(displayTemp)}${unit}
+        </span>
+        <button class="explorer-view-btn" data-lat="${item.lat}" data-lon="${item.lon}" data-name="${item.name}" data-country="${item.country}">
+          View
+        </button>
+      </div>
+    `;
+
+    const viewBtn = row.querySelector('.explorer-view-btn');
+    viewBtn.addEventListener('click', async () => {
+      const lat = viewBtn.dataset.lat;
+      const lon = viewBtn.dataset.lon;
+      const name = viewBtn.dataset.name;
+      const country = viewBtn.dataset.country;
+      
+      // Load city weather on dashboard
+      await fetchWeatherByCoords(lat, lon, name, country);
+      
+      // Smoothly scroll back to the top of the dashboard
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    resultsEl.appendChild(row);
   });
 }
 
