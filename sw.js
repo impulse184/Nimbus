@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nimbus-weather-cache-v44';
+const CACHE_NAME = 'nimbus-weather-cache-v45';
 const ASSETS = [
   './index.html',
   './style.css',
@@ -7,7 +7,8 @@ const ASSETS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './favicon.png'
+  './favicon.png',
+  './favicon.ico'
 ];
 
 self.addEventListener('install', (e) => {
