@@ -5084,16 +5084,63 @@ function resetExplorerResults() {
 }
 
 function matchesWeatherType(id, type) {
-  if (type === 'sunny') {
+  if (type === 'sunny' || type === 'clear sky' || type === 'clear-sky' || type === 'clear') {
     return id === 800;
-  } else if (type === 'rainy') {
+  } else if (type === 'rainy' || type === 'rain') {
     return id >= 200 && id < 600;
-  } else if (type === 'snowy') {
+  } else if (type === 'snowy' || type === 'snow') {
     return id >= 600 && id < 700;
-  } else if (type === 'cloudy') {
+  } else if (type === 'cloudy' || type === 'clouds') {
     return id > 800 && id < 900;
   }
   return false;
+}
+
+function getGlobalCentersForWeather(type) {
+  if (type === 'sunny' || type === 'clear sky' || type === 'clear-sky' || type === 'clear') {
+    return [
+      { lat: 30.044, lon: 31.236, name: 'Cairo' },
+      { lat: 34.052, lon: -118.244, name: 'Los Angeles' },
+      { lat: -33.869, lon: 151.209, name: 'Sydney' }
+    ];
+  } else if (type === 'rainy' || type === 'rain') {
+    return [
+      { lat: 1.352, lon: 103.820, name: 'Singapore' },
+      { lat: 19.724, lon: -155.087, name: 'Hilo' },
+      { lat: 60.391, lon: 5.322, name: 'Bergen' }
+    ];
+  } else if (type === 'snowy' || type === 'snow') {
+    const month = new Date().getMonth(); // 0-11
+    if (month >= 4 && month <= 8) { // May to September: Southern Hemisphere Winter
+      return [
+        { lat: -41.134, lon: -71.309, name: 'Bariloche' },
+        { lat: -45.031, lon: 168.663, name: 'Queenstown' },
+        { lat: -54.802, lon: -68.303, name: 'Ushuaia' },
+        { lat: -53.153, lon: -70.917, name: 'Punta Arenas' }
+      ];
+    } else if (month === 3 || month === 9) { // April or October: Transitional, query both hemispheres
+      return [
+        { lat: -41.134, lon: -71.309, name: 'Bariloche' },
+        { lat: -45.031, lon: 168.663, name: 'Queenstown' },
+        { lat: 69.649, lon: 18.955, name: 'Tromso' },
+        { lat: 61.218, lon: -149.900, name: 'Anchorage' },
+        { lat: -54.802, lon: -68.303, name: 'Ushuaia' }
+      ];
+    } else { // November to March: Northern Hemisphere Winter
+      return [
+        { lat: 69.649, lon: 18.955, name: 'Tromso' },
+        { lat: 64.147, lon: -21.943, name: 'Reykjavik' },
+        { lat: 61.218, lon: -149.900, name: 'Anchorage' },
+        { lat: 78.223, lon: 15.647, name: 'Longyearbyen' }
+      ];
+    }
+  } else { // cloudy / clouds
+    return [
+      { lat: 51.507, lon: -0.128, name: 'London' },
+      { lat: 47.606, lon: -122.332, name: 'Seattle' },
+      { lat: 53.350, lon: -6.260, name: 'Dublin' }
+    ];
+  }
 }
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -5197,29 +5244,41 @@ async function scanNearbyWeather(type) {
 
   try {
     // 1. Fetch local surrounding cities (find circle search)
-    // 2. Fetch global cities spanning various latitudes and polar zones to find real-time weather conditions globally
-    // We split into two separate group API requests (20 cities each) to fully respect the 20-city limit per OWM group request
     const localUrl = `${BASE}/data/2.5/find?lat=${centerLat}&lon=${centerLon}&cnt=50&appid=${API_KEY}&units=metric`;
-    const globalIds1 = '2643743,2988507,5128581,1850147,2147714,360630,524901,5879400,3133895,3413829,2729907,3833367,3874787,2013159,2037078,5913490,6183235,2028462,3421319,5983720';
-    const globalIds2 = '603913,5855927,1880252,5809844,2964574,658225,2673730,3369157,2163355,2867714,1275339,6173331,3143244,5419384,5037649,7626383,6051531,5880054,524305,2611396';
     
-    const globalUrl1 = `${BASE}/data/2.5/group?id=${globalIds1}&appid=${API_KEY}&units=metric`;
-    const globalUrl2 = `${BASE}/data/2.5/group?id=${globalIds2}&appid=${API_KEY}&units=metric`;
-
-    const [localRes, globalRes1, globalRes2] = await Promise.all([
-      fetch(localUrl),
-      fetch(globalUrl1),
-      fetch(globalUrl2)
-    ]);
-
-    if (!localRes.ok) throw new Error('Local scan failed');
-    const localData = await localRes.json();
+    // 2. Fetch global cities from climate-targeted regions matching the queried weather
+    const targetCenters = getGlobalCentersForWeather(type);
     
-    let globalData1 = { list: [] };
-    if (globalRes1.ok) globalData1 = await globalRes1.json();
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    let globalData2 = { list: [] };
-    if (globalRes2.ok) globalData2 = await globalRes2.json();
+    const fetchPromises = [
+      fetch(localUrl).then(res => {
+        if (!res.ok) throw new Error('Local scan failed');
+        return res.json();
+      })
+    ];
+
+    targetCenters.forEach((center, index) => {
+      const url = `${BASE}/data/2.5/find?lat=${center.lat}&lon=${center.lon}&cnt=40&appid=${API_KEY}&units=metric`;
+      fetchPromises.push(
+        delay(index * 150).then(() => fetch(url))
+          .then(res => {
+            if (!res.ok) {
+              console.warn(`Global fetch failed for ${center.name}: ${res.status}`);
+              return { list: [] };
+            }
+            return res.json();
+          })
+          .catch(err => {
+            console.error(`Global fetch error for ${center.name}:`, err);
+            return { list: [] };
+          })
+      );
+    });
+
+    const results = await Promise.all(fetchPromises);
+    const localData = results[0];
+    const globalDataLists = results.slice(1);
 
     const matchedCities = [];
     const addedCityNames = new Set();
@@ -5249,10 +5308,11 @@ async function scanNearbyWeather(type) {
 
     // Add local matches first
     addMatches(localData.list);
-    // Add global group 1 matches second
-    addMatches(globalData1.list);
-    // Add global group 2 matches third
-    addMatches(globalData2.list);
+    
+    // Add global matches
+    globalDataLists.forEach(data => {
+      addMatches(data.list);
+    });
 
 
     // Sort by distance
@@ -5333,19 +5393,19 @@ function renderMockExplorerResults(type, centerLat, centerLon, centerName) {
     const lon = centerLon + lonOffset;
 
     let temp, id, desc;
-    if (type === 'sunny') {
+    if (type === 'sunny' || type === 'clear sky' || type === 'clear-sky' || type === 'clear') {
       temp = 20 + Math.random() * 8;
       id = 800;
       desc = 'clear sky';
-    } else if (type === 'rainy') {
+    } else if (type === 'rainy' || type === 'rain') {
       temp = 9 + Math.random() * 6;
       id = 501;
       desc = 'moderate rain';
-    } else if (type === 'snowy') {
+    } else if (type === 'snowy' || type === 'snow') {
       temp = -4 + Math.random() * 4;
       id = 601;
       desc = 'light snow';
-    } else { // cloudy
+    } else { // cloudy / clouds
       temp = 14 + Math.random() * 5;
       id = 803;
       desc = 'broken clouds';
