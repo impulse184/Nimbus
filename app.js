@@ -4997,7 +4997,7 @@ function renderAstroPage() {
   }
 
   // 2. Meteor Shower Forecast
-  // 2. Meteor Shower Forecast
+  const dateObj = new Date();
   const meteorForecast = getMeteorShowerForecast(dateObj);
   const showerName = meteorForecast.name;
   const baseZhr = meteorForecast.baseZhr;
