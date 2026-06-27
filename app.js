@@ -3851,36 +3851,25 @@ function openStatDetail(type, sourceCard) {
     }
     case 'cosmic_meteor': {
       const dateObj = new Date();
-      const month = dateObj.getMonth();
-      let showerName = "Quadrantids Peak";
-      let baseZhr = 110;
-      let velocity = "41 km/s";
-      let radiant = "Bootes";
-      
-      if (month >= 3 && month <= 4) {
-        showerName = "Lyrids Peak";
-        baseZhr = 18;
-        velocity = "49 km/s";
-        radiant = "Lyra";
-      } else if (month >= 6 && month <= 7) {
-        showerName = "Perseids Peak";
-        baseZhr = 100;
-        velocity = "59 km/s";
-        radiant = "Perseus";
-      } else if (month >= 9 && month <= 10) {
-        showerName = "Orionids Peak";
-        baseZhr = 25;
-        velocity = "66 km/s";
-        radiant = "Orion";
-      } else if (month === 11) {
-        showerName = "Geminids Peak";
-        baseZhr = 120;
-        velocity = "35 km/s";
-        radiant = "Gemini";
-      }
-      
+      const meteorForecast = getMeteorShowerForecast(dateObj);
+      const showerName = meteorForecast.name;
+      const baseZhr = meteorForecast.baseZhr;
+      const velocity = meteorForecast.velocity;
+      const radiant = meteorForecast.radiant;
+      const comet = meteorForecast.comet;
+      const isUpcoming = meteorForecast.status === "UPCOMING";
+
       const clouds = cur.clouds.all;
-      const actualZhr = Math.round(baseZhr * (1 - clouds / 100));
+      const lat = cur.coord.lat;
+      
+      let latFactor = 1.0;
+      if (showerName.includes("Perseids") && lat < -10) latFactor = 0.3;
+      if (showerName.includes("Geminids") && lat < -30) latFactor = 0.5;
+
+      let actualZhr = Math.round(baseZhr * latFactor * (1 - clouds / 100));
+      if (isUpcoming) {
+        actualZhr = 0;
+      }
       const moonAge = calculateLunarAge(cur.dt);
       const moonIllum = Math.round((1 - Math.cos((moonAge / 29.530588853) * 2 * Math.PI)) * 50);
 
@@ -3898,27 +3887,30 @@ function openStatDetail(type, sourceCard) {
             <line x1="70" y1="30" x2="85" y2="45" stroke="#22d3ee" stroke-width="1" stroke-linecap="round" stroke-dasharray="15" stroke-dashoffset="5" />
             <circle cx="50" cy="50" r="4" fill="#f8fafc" />
           </svg>
-          <div style="font-size:12px; font-weight:700; color:#06b6d4;">Local Observing Quality: ${clouds > 60 ? 'Poor' : 'Good'}</div>
+          <div style="font-size:12px; font-weight:700; color:#06b6d4;">Local Observing Quality: ${isUpcoming ? 'N/A' : clouds > 60 ? 'Poor' : 'Good'}</div>
         </div>
       `;
 
       detailStats.innerHTML =
-        pill('Expected ZHR', actualZhr + ' / hr', 0) +
+        pill(isUpcoming ? 'Peak ZHR Rate' : 'Expected Rate', (isUpcoming ? baseZhr : actualZhr) + ' / hr', 0) +
         pill('Moon Glare', moonIllum + '%', 1) +
         pill('Entry Velocity', velocity, 2) +
         pill('Radiant Position', radiant, 3) +
-        pill('Parent Comet', showerName.includes("Perseids") ? "Swift-Tuttle" : "Halley/Geminid", 4) +
-        pill('Best Window', '12AM - 4AM', 5);
+        pill('Parent Body', comet, 4) +
+        pill('Best Window', isUpcoming ? 'Peak active soon' : '12AM - 4AM', 5);
       detailStats.style.gridTemplateColumns = '';
 
       detailInsight.innerHTML = `
         <div style="font-size:12.5px; opacity:0.8; line-height:1.45; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
-          ℹ️ A <strong>meteor shower</strong> occurs when Earth orbits through the dust trail left behind by an ancient comet, causing grains to ablate in the upper atmosphere.
+          ℹ️ A <strong>meteor shower</strong> occurs when Earth orbits through the dust trail left behind by an ancient comet or asteroid, causing grains to ablate in the upper atmosphere.
         </div>
-        The peak rate is estimated at <strong>${actualZhr} shooting stars/hour</strong>. Moonlight glare is at <strong>${moonIllum}%</strong>. ${
-          clouds > 65 ? '☁️ Unfortunately, local overcast skies obstruct stargazing. The constellations are completely covered tonight.' :
-          moonIllum > 70 ? '🌕 Clear skies are forecast, but the high lunar illumination washes out faint meteor streaks. Look away from the moon to see bright fireballs!' :
-          '✨ Perfect clear dark skies tonight! Excellent contrast to see faint, high-velocity meteor tails crossing the sky.'
+        ${isUpcoming 
+          ? `The ${meteorForecast.detail} When active, expect a peak rate of <strong>${baseZhr} shooting stars/hour</strong> under clear dark skies.`
+          : `The peak rate is estimated at <strong>${actualZhr} shooting stars/hour</strong>. Moonlight glare is at <strong>${moonIllum}%</strong>. ${
+              clouds > 65 ? '☁️ Unfortunately, local overcast skies obstruct stargazing. The constellations are completely covered tonight.' :
+              moonIllum > 70 ? '🌕 Clear skies are forecast, but the high lunar illumination washes out faint meteor streaks. Look away from the moon to see bright fireballs!' :
+              '✨ Perfect clear dark skies tonight! Excellent contrast to see faint, high-velocity meteor tails crossing the sky.'
+            }`
         }
       `;
       break;
@@ -4747,6 +4739,175 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * c);
 }
 
+// Major annual meteor showers calculator based on active dates and current day
+function getMeteorShowerForecast(date = new Date()) {
+  const year = date.getFullYear();
+  const makeDate = (m, d) => new Date(year, m, d);
+
+  const showers = [
+    {
+      name: "Quadrantids",
+      start: makeDate(11, 28), // Dec 28
+      end: makeDate(0, 12),    // Jan 12
+      peak: makeDate(0, 4),    // Jan 4
+      zhr: 110,
+      velocity: "41 km/s",
+      radiant: "Boötes",
+      comet: "Asteroid 2003 EH1"
+    },
+    {
+      name: "Lyrids",
+      start: makeDate(3, 14),  // Apr 14
+      end: makeDate(3, 30),    // Apr 30
+      peak: makeDate(3, 22),   // Apr 22
+      zhr: 18,
+      velocity: "49 km/s",
+      radiant: "Lyra",
+      comet: "Comet Thatcher"
+    },
+    {
+      name: "Eta Aquariids",
+      start: makeDate(3, 19),  // Apr 19
+      end: makeDate(4, 28),    // May 28
+      peak: makeDate(4, 6),    // May 6
+      zhr: 50,
+      velocity: "66 km/s",
+      radiant: "Aquarius",
+      comet: "Comet Halley"
+    },
+    {
+      name: "Delta Aquariids",
+      start: makeDate(6, 12),  // Jul 12
+      end: makeDate(7, 23),    // Aug 23
+      peak: makeDate(6, 30),   // Jul 30
+      zhr: 25,
+      velocity: "41 km/s",
+      radiant: "Aquarius",
+      comet: "Comet 96P/Machholz"
+    },
+    {
+      name: "Perseids",
+      start: makeDate(6, 17),  // Jul 17
+      end: makeDate(7, 24),    // Aug 24
+      peak: makeDate(7, 13),   // Aug 13
+      zhr: 100,
+      velocity: "59 km/s",
+      radiant: "Perseus",
+      comet: "Comet Swift-Tuttle"
+    },
+    {
+      name: "Orionids",
+      start: makeDate(9, 2),   // Oct 2
+      end: makeDate(10, 7),    // Nov 7
+      peak: makeDate(9, 21),   // Oct 21
+      zhr: 25,
+      velocity: "66 km/s",
+      radiant: "Orion",
+      comet: "Comet Halley"
+    },
+    {
+      name: "Leonids",
+      start: makeDate(10, 6),  // Nov 6
+      end: makeDate(10, 30),   // Nov 30
+      peak: makeDate(10, 17),  // Nov 17
+      zhr: 15,
+      velocity: "71 km/s",
+      radiant: "Leo",
+      comet: "Comet Tempel-Tuttle"
+    },
+    {
+      name: "Geminids",
+      start: makeDate(11, 4),  // Dec 4
+      end: makeDate(11, 20),   // Dec 20
+      peak: makeDate(11, 14),  // Dec 14
+      zhr: 120,
+      velocity: "35 km/s",
+      radiant: "Gemini",
+      comet: "Asteroid 3200 Phaethon"
+    },
+    {
+      name: "Ursids",
+      start: makeDate(11, 17), // Dec 17
+      end: makeDate(11, 26),   // Dec 26
+      peak: makeDate(11, 22),  // Dec 22
+      zhr: 10,
+      velocity: "33 km/s",
+      radiant: "Ursa Minor",
+      comet: "Comet 8P/Tuttle"
+    }
+  ];
+
+  // Dec-Jan wrap-around check for Quadrantids
+  const quad = showers[0];
+  if (date.getMonth() === 11 && date.getDate() >= 28) {
+    quad.end = new Date(year + 1, 0, 12);
+    quad.peak = new Date(year + 1, 0, 4);
+  } else if (date.getMonth() === 0 && date.getDate() <= 12) {
+    quad.start = new Date(year - 1, 11, 28);
+  }
+
+  // Find active showers
+  const active = showers.filter(s => date >= s.start && date <= s.end);
+
+  if (active.length > 0) {
+    active.sort((a, b) => b.zhr - a.zhr);
+    const main = active[0];
+    const daysToPeak = Math.round((main.peak - date) / (1000 * 60 * 60 * 24));
+    
+    let status = "ACTIVE";
+    let statusLabel = `${main.name} Peak`;
+    let detail = "";
+    
+    if (Math.abs(daysToPeak) <= 1) {
+      status = "PEAK ACTIVE";
+      statusLabel = `${main.name} Peak`;
+      detail = `The shower is at its maximum peak activity tonight!`;
+    } else if (daysToPeak > 1) {
+      detail = `Active shower. Peak intensity is in ${daysToPeak} days.`;
+    } else {
+      detail = `Active shower. Peak occurred ${Math.abs(daysToPeak)} days ago, but activity remains visible.`;
+    }
+
+    return {
+      name: statusLabel,
+      baseZhr: main.zhr,
+      status: status,
+      detail: detail,
+      isPeak: Math.abs(daysToPeak) <= 1,
+      velocity: main.velocity,
+      radiant: main.radiant,
+      comet: main.comet
+    };
+  }
+
+  // Find next upcoming shower
+  let upcoming = showers.map(s => {
+    let nextPeak = s.peak;
+    let nextStart = s.start;
+    if (date > s.peak) {
+      nextPeak = new Date(year + 1, s.peak.getMonth(), s.peak.getDate());
+      nextStart = new Date(year + 1, s.start.getMonth(), s.start.getDate());
+    }
+    return { ...s, nextPeak, nextStart };
+  });
+
+  upcoming.sort((a, b) => a.nextPeak - b.nextPeak);
+  const nextShower = upcoming[0];
+  const daysToStart = Math.round((nextShower.nextStart - date) / (1000 * 60 * 60 * 24));
+  const dateStr = nextShower.nextPeak.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return {
+    name: `${nextShower.name} Peak`,
+    baseZhr: nextShower.zhr,
+    status: "UPCOMING",
+    detail: `Next major shower (${nextShower.name}) starts in ${daysToStart} days. Peak expected on ${dateStr}.`,
+    isPeak: false,
+    velocity: nextShower.velocity,
+    radiant: nextShower.radiant,
+    comet: nextShower.comet
+  };
+}
+
 /* ─── Cosmic Events & Space Telemetry Calculations ─── */
 let lastRenderedKp = null;
 let lastRenderedIssLat = null;
@@ -4836,31 +4997,20 @@ function renderAstroPage() {
   }
 
   // 2. Meteor Shower Forecast
-  const dateObj = new Date();
-  const month = dateObj.getMonth(); // 0-indexed
-  let showerName = "Quadrantids Shower Peak";
-  let baseZhr = 110;
+  // 2. Meteor Shower Forecast
+  const meteorForecast = getMeteorShowerForecast(dateObj);
+  const showerName = meteorForecast.name;
+  const baseZhr = meteorForecast.baseZhr;
   
-  if (month >= 3 && month <= 4) { // April-May
-    showerName = "Lyrids Shower Peak";
-    baseZhr = 18;
-  } else if (month >= 6 && month <= 7) { // July-August
-    showerName = "Perseids Shower Peak";
-    baseZhr = 100;
-  } else if (month >= 9 && month <= 10) { // October-November
-    showerName = "Orionids Shower Peak";
-    baseZhr = 25;
-  } else if (month === 11) { // December
-    showerName = "Geminids Shower Peak";
-    baseZhr = 120;
-  }
-
   // Calculate actual ZHR based on cloud coverage and latitude adjustments
   let latFactor = 1.0;
   if (showerName.includes("Perseids") && lat < -10) latFactor = 0.3; // Southern penalty
   if (showerName.includes("Geminids") && lat < -30) latFactor = 0.5;
 
-  const actualZhr = Math.round(baseZhr * latFactor * (1 - clouds / 100));
+  let actualZhr = Math.round(baseZhr * latFactor * (1 - clouds / 100));
+  if (meteorForecast.status === "UPCOMING") {
+    actualZhr = 0;
+  }
   
   const moonAge = calculateLunarAge(Date.now() / 1000);
   const moonIllum = Math.round((1 - Math.cos((moonAge / 29.530588853) * 2 * Math.PI)) * 50);
@@ -4887,11 +5037,23 @@ function renderAstroPage() {
 
   if (meteorShowerName && meteorZhrVal && meteorQuality && meteorDesc) {
     meteorShowerName.textContent = showerName;
-    meteorZhrVal.textContent = `${actualZhr} / hr`;
-    meteorQuality.textContent = observingQuality;
-    meteorQuality.style.color = qualityColor;
+    meteorZhrVal.textContent = meteorForecast.status === "UPCOMING" ? `0 / hr` : `${actualZhr} / hr`;
+    meteorQuality.textContent = meteorForecast.status === "UPCOMING" ? `N/A` : observingQuality;
+    if (meteorForecast.status === "UPCOMING") {
+      meteorQuality.style.color = "rgba(255,255,255,0.4)";
+    } else {
+      meteorQuality.style.color = qualityColor;
+    }
 
-    if (observingQuality === "Poor") {
+    if (meteorForecast.status === "UPCOMING") {
+      meteorDesc.textContent = meteorForecast.detail;
+      if (meteorBadge) {
+        meteorBadge.textContent = "UPCOMING";
+        meteorBadge.style.color = "#a855f7";
+        meteorBadge.style.background = "rgba(168, 85, 247, 0.12)";
+        meteorBadge.style.borderColor = "rgba(168, 85, 247, 0.3)";
+      }
+    } else if (observingQuality === "Poor") {
       meteorDesc.textContent = `☁️ Overcast skies will make shower observation highly difficult tonight. Constellations completely hidden.`;
       if (meteorBadge) {
         meteorBadge.textContent = "OBSCURED";
@@ -4900,9 +5062,9 @@ function renderAstroPage() {
         meteorBadge.style.borderColor = "rgba(239, 68, 68, 0.3)";
       }
     } else {
-      meteorDesc.textContent = `✨ Best viewing starts after midnight. Moon glare is at ${moonIllum}%, offering ${observingQuality.toLowerCase()} dark sky visibility.`;
+      meteorDesc.textContent = `${meteorForecast.detail} Best viewing starts after midnight. Moon glare is at ${moonIllum}%, offering ${observingQuality.toLowerCase()} dark sky visibility.`;
       if (meteorBadge) {
-        meteorBadge.textContent = "ACTIVE";
+        meteorBadge.textContent = meteorForecast.status;
         meteorBadge.style.color = "#60a5fa";
         meteorBadge.style.background = "rgba(96, 165, 250, 0.12)";
         meteorBadge.style.borderColor = "rgba(96, 165, 250, 0.3)";
