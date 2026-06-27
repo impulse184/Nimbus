@@ -3794,15 +3794,27 @@ function openStatDetail(type, sourceCard) {
     case 'cosmic_geomagnetic': {
       const lat = cur.coord.lat;
       const absLat = Math.abs(lat);
-      const solarSpeed = Math.round(340 + absLat * 3.2 + (Math.sin(Date.now() / 100000) * 40));
-      const protonDensity = (3.2 + (absLat / 90) * 4.5).toFixed(1);
-      let kp = Math.round(1 + (absLat / 90) * 4.5 + 1);
-      kp = Math.max(0, Math.min(kp, 9));
+      let solarSpeed = 0;
+      let protonDensity = "0.0";
+      let kp = 2;
+      let isLive = false;
+
+      if (spaceWeatherCache) {
+        kp = spaceWeatherCache.kp;
+        solarSpeed = spaceWeatherCache.solarSpeed;
+        protonDensity = spaceWeatherCache.protonDensity;
+        isLive = true;
+      } else {
+        solarSpeed = Math.round(340 + absLat * 3.2 + (Math.sin(Date.now() / 100000) * 40));
+        protonDensity = (3.2 + (absLat / 90) * 4.5).toFixed(1);
+        kp = Math.round(1 + (absLat / 90) * 4.5 + 1);
+        kp = Math.max(0, Math.min(kp, 9));
+      }
 
       setModalTheme('#10b981', 'rgba(16,185,129,0.5)', 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(139,92,246,0.15))');
       detailIcon.textContent     = '☄️';
       detailTitle.textContent    = 'Space Weather & Solar Wind';
-      detailSubtitle.textContent = 'Magnetosphere telemetry & solar plasma streams';
+      detailSubtitle.innerHTML = `Magnetosphere telemetry & solar plasma streams` + (isLive ? ` <span class="live-indicator" style="margin-left: 8px;"><span class="live-dot"></span>Live</span>` : '');
       detailMainVal.textContent  = `Kp ${kp} · ${kp >= 6 ? 'Storm' : kp >= 4 ? 'Active' : 'Quiet'}`;
 
       detailVisual.innerHTML = `
@@ -3812,7 +3824,7 @@ function openStatDetail(type, sourceCard) {
             <circle cx="50" cy="50" r="38" fill="none" stroke="#f97316" stroke-width="2" stroke-dasharray="8,6" style="transform-origin: center; animation: spin 16s linear infinite;" />
             <circle cx="50" cy="50" r="46" fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="14,10" style="transform-origin: center; animation: spin 25s linear reverse infinite;" />
           </svg>
-          <div style="font-size:12px; font-weight:700; color:#10b981;">Interplanetary Magnetic Field (IMF) Active</div>
+          <div style="font-size:12px; font-weight:700; color:#10b981;">Interplanetary Magnetic Field (IMF) ${isLive ? 'Live Stream' : 'Active'}</div>
         </div>
       `;
 
@@ -3913,15 +3925,23 @@ function openStatDetail(type, sourceCard) {
     }
     case 'cosmic_satellites': {
       const lat = cur.coord.lat;
+      const lon = cur.coord.lon;
       const absLat = Math.abs(lat);
       const clouds = cur.clouds.all;
       const visibleCount = clouds > 80 ? 0 : clouds > 45 ? 1 : 2;
 
+      let isLive = false;
+      let issDistance = null;
+      if (issCache) {
+        issDistance = calculateDistance(lat, lon, issCache.lat, issCache.lon);
+        isLive = true;
+      }
+
       setModalTheme('#8b5cf6', 'rgba(139,92,246,0.5)', 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(168,85,247,0.15))');
       detailIcon.textContent     = '🛰️';
       detailTitle.textContent    = 'Low Earth Orbit Telemetry';
-      detailSubtitle.textContent = 'Spacecraft passes & orbit coordinates';
-      detailMainVal.textContent  = `${visibleCount} Spacecraft Visible`;
+      detailSubtitle.innerHTML = `Spacecraft passes & orbit coordinates` + (isLive ? ` <span class="live-indicator" style="margin-left: 8px;"><span class="live-dot"></span>Live</span>` : '');
+      detailMainVal.textContent  = isLive ? `ISS ${issDistance.toLocaleString()} km Away` : `${visibleCount} Spacecraft Visible`;
 
       detailVisual.innerHTML = `
         <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
@@ -3939,22 +3959,42 @@ function openStatDetail(type, sourceCard) {
         </div>
       `;
 
-      detailStats.innerHTML =
-        pill('Next ISS Pass', '9:42 PM', 0) +
-        pill('ISS Elevation', Math.round(35 + absLat * 0.4) + '° Elev', 1) +
-        pill('Pass Duration', '5m 24s', 2) +
-        pill('Starlink Chain', '11:15 PM', 3) +
-        pill('LEO Altitude', '420 - 550 km', 4) +
-        pill('Orbital Speed', '7.66 km/s', 5);
+      if (isLive) {
+        let estEl = Math.round(90 - (issDistance / 35));
+        estEl = Math.max(0, Math.min(estEl, 90));
+
+        detailStats.innerHTML =
+          pill('ISS Distance', issDistance.toLocaleString() + ' km', 0) +
+          pill('ISS Elevation', estEl + '° Elev', 1) +
+          pill('ISS Velocity', Math.round(issCache.vel).toLocaleString() + ' km/h', 2) +
+          pill('ISS Altitude', Math.round(issCache.alt) + ' km', 3) +
+          pill('ISS Latitude', issCache.lat.toFixed(2) + '°', 4) +
+          pill('ISS Longitude', issCache.lon.toFixed(2) + '°', 5);
+      } else {
+        detailStats.innerHTML =
+          pill('Next ISS Pass', '9:42 PM', 0) +
+          pill('ISS Elevation', Math.round(35 + absLat * 0.4) + '° Elev', 1) +
+          pill('Pass Duration', '5m 24s', 2) +
+          pill('Starlink Chain', '11:15 PM', 3) +
+          pill('LEO Altitude', '420 - 550 km', 4) +
+          pill('Orbital Speed', '7.66 km/s', 5);
+      }
       detailStats.style.gridTemplateColumns = '';
 
       detailInsight.innerHTML = `
         <div style="font-size:12.5px; opacity:0.8; line-height:1.45; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
           ℹ️ Spacecraft in <strong>Low Earth Orbit (LEO)</strong> fly at altitudes under 2,000 km, traveling at speeds around 27,600 km/h (completing an orbit every 90 minutes).
         </div>
-        The International Space Station (ISS) is executing an orbit pass tonight at <strong>9:42 PM</strong>. ${
-          visibleCount === 0 ? '☁️ Dense cloud cover blocks overhead optical lines. ISS passes are unfortunately obscured.' :
-          '✨ High visibility forecast! The solar arrays of the ISS will reflect sunset light, appearing as an exceptionally bright star gliding across the sky.'
+        ${isLive 
+          ? `The International Space Station (ISS) is currently tracked live over coordinates <strong>${issCache.lat.toFixed(2)}°, ${issCache.lon.toFixed(2)}°</strong> at an altitude of <strong>${Math.round(issCache.alt)} km</strong>. It is exactly <strong>${issDistance.toLocaleString()} km</strong> away from you. ${
+              visibleCount === 0 ? '☁️ Unfortunately, local cloud cover blocks optical line of sight.' :
+              issDistance < 2000 ? '✨ Excellent visibility! The ISS is currently in range and visible to the naked eye as a bright star gliding overhead.' :
+              '📡 The station is currently below your horizon. Keep tracking to watch it pass closer.'
+            }`
+          : `The International Space Station (ISS) is executing an orbit pass tonight at <strong>9:42 PM</strong>. ${
+              visibleCount === 0 ? '☁️ Dense cloud cover blocks overhead optical lines. ISS passes are unfortunately obscured.' :
+              '✨ High visibility forecast! The solar arrays of the ISS will reflect sunset light, appearing as an exceptionally bright star gliding across the sky.'
+            }`
         }
       `;
       break;
@@ -4010,8 +4050,16 @@ function openStatDetail(type, sourceCard) {
       const lat = cur.coord.lat;
       const absLat = Math.abs(lat);
       const clouds = cur.clouds.all;
-      let kp = Math.round(1 + (absLat / 90) * 4.5 + 1);
-      kp = Math.max(0, Math.min(kp, 9));
+      let kp = 2;
+      let isLive = false;
+
+      if (spaceWeatherCache) {
+        kp = spaceWeatherCache.kp;
+        isLive = true;
+      } else {
+        kp = Math.round(1 + (absLat / 90) * 4.5 + 1);
+        kp = Math.max(0, Math.min(kp, 9));
+      }
       
       let baseAurora = 0;
       if (absLat >= 60 && absLat <= 75) {
@@ -4026,7 +4074,7 @@ function openStatDetail(type, sourceCard) {
       setModalTheme('#22c55e', 'rgba(34,197,94,0.5)', 'linear-gradient(135deg, rgba(34,197,94,0.25), rgba(16,185,129,0.15))');
       detailIcon.textContent     = '🟢';
       detailTitle.textContent    = 'Aurora Probability Forecast';
-      detailSubtitle.textContent = 'Polar geomagnetic induction and excitation forecast';
+      detailSubtitle.innerHTML = `Polar geomagnetic induction and excitation forecast` + (isLive ? ` <span class="live-indicator" style="margin-left: 8px;"><span class="live-dot"></span>Live</span>` : '');
       detailMainVal.textContent  = `${visibleProb}% Probability`;
 
       detailVisual.innerHTML = `
@@ -4596,7 +4644,128 @@ function stopAstroUpdates() {
 
 setupCosmicClickListeners();
 
+/* ─── Live Space Telemetry State & Fetch Functions ─── */
+let spaceWeatherCache = null;
+let spaceWeatherFetchTime = 0;
+const SPACE_WEATHER_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+let issCache = null;
+let issFetchTime = 0;
+const ISS_CACHE_DURATION = 15 * 1000; // 15 seconds
+
+let isSpaceWeatherFetching = false;
+let isIssFetching = false;
+
+// Fetch space weather (Kp-index and solar wind) from NOAA
+async function fetchSpaceWeatherTelemetry() {
+  const now = Date.now();
+  if (spaceWeatherCache && (now - spaceWeatherFetchTime < SPACE_WEATHER_CACHE_DURATION)) {
+    return spaceWeatherCache;
+  }
+  if (isSpaceWeatherFetching) return spaceWeatherCache;
+  
+  isSpaceWeatherFetching = true;
+  try {
+    const [kpRes, plasmaRes] = await Promise.all([
+      fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
+      fetch('https://services.swpc.noaa.gov/products/solar-wind/plasma-5-minute.json')
+    ]);
+
+    if (!kpRes.ok || !plasmaRes.ok) throw new Error('NOAA fetch failed');
+
+    const kpData = await kpRes.json();
+    const plasmaData = await plasmaRes.json();
+
+    // Parse Kp Index (last element)
+    const latestKpObj = kpData[kpData.length - 1];
+    const kpVal = latestKpObj ? parseFloat(latestKpObj.Kp) : null;
+
+    // Parse Solar Wind Speed & Density from plasma list
+    let speedVal = null;
+    let densityVal = null;
+    if (Array.isArray(plasmaData) && plasmaData.length > 1) {
+      const latestPlasma = plasmaData[plasmaData.length - 1];
+      densityVal = parseFloat(latestPlasma[1]);
+      speedVal = parseFloat(latestPlasma[2]);
+    }
+
+    if (kpVal !== null && speedVal !== null && densityVal !== null) {
+      spaceWeatherCache = {
+        kp: kpVal,
+        solarSpeed: Math.round(speedVal),
+        protonDensity: densityVal.toFixed(1)
+      };
+      spaceWeatherFetchTime = Date.now();
+    }
+  } catch (error) {
+    console.error('Error fetching Space Weather from NOAA:', error);
+  } finally {
+    isSpaceWeatherFetching = false;
+  }
+  return spaceWeatherCache;
+}
+
+// Fetch live ISS location from wheretheiss.at
+async function fetchLiveIssLocation() {
+  const now = Date.now();
+  if (issCache && (now - issFetchTime < ISS_CACHE_DURATION)) {
+    return issCache;
+  }
+  if (isIssFetching) return issCache;
+
+  isIssFetching = true;
+  try {
+    const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+    if (!res.ok) throw new Error('ISS tracking fetch failed');
+    const data = await res.json();
+    
+    issCache = {
+      lat: parseFloat(data.latitude),
+      lon: parseFloat(data.longitude),
+      alt: parseFloat(data.altitude),
+      vel: parseFloat(data.velocity)
+    };
+    issFetchTime = Date.now();
+  } catch (error) {
+    console.error('Error tracking ISS position:', error);
+  } finally {
+    isIssFetching = false;
+  }
+  return issCache;
+}
+
+// Haversine distance calculator in km
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return Math.round(R * c);
+}
+
 /* ─── Cosmic Events & Space Telemetry Calculations ─── */
+let lastRenderedKp = null;
+let lastRenderedIssLat = null;
+
+function triggerTelemetryFetches() {
+  fetchSpaceWeatherTelemetry().then(liveData => {
+    if (liveData && liveData.kp !== lastRenderedKp) {
+      lastRenderedKp = liveData.kp;
+      renderAstroPage();
+    }
+  });
+  fetchLiveIssLocation().then(liveIss => {
+    if (liveIss && liveIss.lat !== lastRenderedIssLat) {
+      lastRenderedIssLat = liveIss.lat;
+      renderAstroPage();
+    }
+  });
+}
+
 function renderAstroPage() {
   if (!currentWeatherData) return;
 
@@ -4609,19 +4778,33 @@ function renderAstroPage() {
   const clouds = currentWeatherData.clouds.all;
   const absLat = Math.abs(lat);
 
+  // Trigger background fetches (updates UI on completion)
+  triggerTelemetryFetches();
+
   // 1. Geomagnetic Activity & Solar Wind Telemetry
-  // Base wind speed scales with absolute latitude (simulating magnetic field focus at poles)
-  const solarSpeed = Math.round(340 + absLat * 3.2 + (Math.sin(Date.now() / 100000) * 40) + Math.random() * 15);
-  const protonDensity = (3.2 + (absLat / 90) * 4.5 + Math.random() * 2).toFixed(1);
-  
-  // Kp-index calculations (0 to 9)
-  let kp = Math.round(1 + (absLat / 90) * 4.5 + (Math.random() * 2));
-  kp = Math.max(0, Math.min(kp, 9));
+  let kp = 2;
+  let solarSpeed = 400;
+  let protonDensity = "4.2";
+  let isLiveSpace = false;
+
+  if (spaceWeatherCache) {
+    kp = spaceWeatherCache.kp;
+    solarSpeed = spaceWeatherCache.solarSpeed;
+    protonDensity = spaceWeatherCache.protonDensity;
+    isLiveSpace = true;
+  } else {
+    // Procedural fallback using coordinates & time-based sin waves
+    solarSpeed = Math.round(340 + absLat * 3.2 + (Math.sin(Date.now() / 100000) * 40) + Math.random() * 15);
+    protonDensity = (3.2 + (absLat / 90) * 4.5 + Math.random() * 2).toFixed(1);
+    kp = Math.round(1 + (absLat / 90) * 4.5 + (Math.random() * 2));
+    kp = Math.max(0, Math.min(kp, 9));
+  }
 
   const kpBadge = document.getElementById('kpBadge');
   const solarWindSpeed = document.getElementById('solarWindSpeed');
   const solarProtonDensity = document.getElementById('solarProtonDensity');
   const kpDescText = document.getElementById('kpDescText');
+  const solarSubtitle = document.querySelector('#cosmicSolarCard .cosmic-subcard-subtitle');
 
   if (kpBadge && solarWindSpeed && solarProtonDensity && kpDescText) {
     solarWindSpeed.textContent = `${solarSpeed} km/s`;
@@ -4641,6 +4824,14 @@ function renderAstroPage() {
       kpBadge.textContent = `Kp ${kp} · QUIET`;
       kpBadge.classList.add('level-quiet');
       kpDescText.textContent = `🟢 Geomagnetic conditions are calm and stable. Low earth orbits and communication arrays operating nominally.`;
+    }
+  }
+
+  if (solarSubtitle) {
+    if (isLiveSpace) {
+      solarSubtitle.innerHTML = `solar wind telemetry <span class="live-indicator" style="margin-left:8px;"><span class="live-dot"></span>Live</span>`;
+    } else {
+      solarSubtitle.innerHTML = `solar wind telemetry`;
     }
   }
 
@@ -4725,6 +4916,15 @@ function renderAstroPage() {
   const issElText = document.getElementById('issElText');
   const starlinkTimeText = document.getElementById('starlinkTimeText');
   const starlinkElText = document.getElementById('starlinkElText');
+  const satSubtitle = document.querySelector('#cosmicSatCard .cosmic-subcard-subtitle');
+
+  let isLiveIss = false;
+  let issDistance = null;
+
+  if (issCache) {
+    issDistance = calculateDistance(lat, lon, issCache.lat, issCache.lon);
+    isLiveIss = true;
+  }
 
   let visibleCount = 2;
   if (clouds > 85) {
@@ -4734,21 +4934,30 @@ function renderAstroPage() {
   }
 
   if (issBadge) {
-    issBadge.textContent = `${visibleCount} VISIBLE`;
-    if (visibleCount === 0) {
-      issBadge.style.color = "#ef4444";
-      issBadge.style.background = "rgba(239, 68, 68, 0.12)";
-      issBadge.style.borderColor = "rgba(239, 68, 68, 0.3)";
-    } else {
+    if (isLiveIss && issDistance < 2000) {
+      issBadge.textContent = "PASS ACTIVE";
       issBadge.style.color = "#10b981";
       issBadge.style.background = "rgba(16, 185, 129, 0.12)";
       issBadge.style.borderColor = "rgba(16, 185, 129, 0.3)";
+    } else {
+      issBadge.textContent = `${visibleCount} VISIBLE`;
+      if (visibleCount === 0) {
+        issBadge.style.color = "#ef4444";
+        issBadge.style.background = "rgba(239, 68, 68, 0.12)";
+        issBadge.style.borderColor = "rgba(239, 68, 68, 0.3)";
+      } else {
+        issBadge.style.color = "#10b981";
+        issBadge.style.background = "rgba(16, 185, 129, 0.12)";
+        issBadge.style.borderColor = "rgba(16, 185, 129, 0.3)";
+      }
     }
   }
 
   if (issTimeText && issElText && starlinkTimeText && starlinkElText) {
     if (visibleCount === 0) {
-      issTimeText.textContent = "Overcast blocks ISS orbit paths";
+      issTimeText.textContent = isLiveIss 
+        ? `ISS is ${issDistance.toLocaleString()} km away (obscured by clouds)`
+        : "Overcast blocks ISS orbit paths";
       issElText.textContent = "0° Elev";
       issElText.style.color = "#ef4444";
       issElText.style.background = "rgba(239, 68, 68, 0.12)";
@@ -4760,17 +4969,41 @@ function renderAstroPage() {
       starlinkElText.style.background = "rgba(239, 68, 68, 0.12)";
       starlinkElText.style.borderColor = "rgba(239, 68, 68, 0.3)";
     } else {
-      issTimeText.textContent = `${getUpcomingPassTime(20, 42, 5)} (5m dur)`;
-      issElText.textContent = `${Math.round(35 + absLat * 0.4)}° Elev`;
-      issElText.style.color = "#3b82f6";
-      issElText.style.background = "rgba(59, 130, 246, 0.12)";
-      issElText.style.borderColor = "rgba(59, 130, 246, 0.3)";
+      if (isLiveIss) {
+        issTimeText.textContent = `ISS distance: ${issDistance.toLocaleString()} km away (velocity: ${Math.round(issCache.vel).toLocaleString()} km/h)`;
+        let estEl = Math.round(90 - (issDistance / 35));
+        estEl = Math.max(0, Math.min(estEl, 90));
+        issElText.textContent = `${estEl}° Elev`;
+        if (estEl > 30) {
+          issElText.style.color = "#10b981";
+          issElText.style.background = "rgba(16, 185, 129, 0.12)";
+          issElText.style.borderColor = "rgba(16, 185, 129, 0.3)";
+        } else {
+          issElText.style.color = "#3b82f6";
+          issElText.style.background = "rgba(59, 130, 246, 0.12)";
+          issElText.style.borderColor = "rgba(59, 130, 246, 0.3)";
+        }
+      } else {
+        issTimeText.textContent = `${getUpcomingPassTime(20, 42, 5)} (5m dur)`;
+        issElText.textContent = `${Math.round(35 + absLat * 0.4)}° Elev`;
+        issElText.style.color = "#3b82f6";
+        issElText.style.background = "rgba(59, 130, 246, 0.12)";
+        issElText.style.borderColor = "rgba(59, 130, 246, 0.3)";
+      }
 
       starlinkTimeText.textContent = `${getUpcomingPassTime(22, 15, 7)} (4m dur)`;
       starlinkElText.textContent = `${Math.round(20 + absLat * 0.2)}° Elev`;
       starlinkElText.style.color = "#a855f7";
       starlinkElText.style.background = "rgba(168, 85, 247, 0.12)";
       starlinkElText.style.borderColor = "rgba(168, 85, 247, 0.3)";
+    }
+  }
+
+  if (satSubtitle) {
+    if (isLiveIss) {
+      satSubtitle.innerHTML = `low earth orbit telemetry <span class="live-indicator" style="margin-left:8px;"><span class="live-dot"></span>Live</span>`;
+    } else {
+      satSubtitle.innerHTML = `low earth orbit telemetry`;
     }
   }
 
@@ -4840,8 +5073,15 @@ function renderAstroPage() {
   const timeline = document.getElementById('astroTimeline');
   if (timeline) {
     timeline.innerHTML = "";
+    let issPassDetail = `Visible flyby crossing at ${Math.round(35 + absLat * 0.4)}° max elevation.`;
+    let issPassTime = getUpcomingPassTime(20, 42, 5);
+    if (isLiveIss) {
+      issPassDetail = `Live tracking active. Located ${issDistance.toLocaleString()} km from your current view coordinates.`;
+      issPassTime = `Tracking live`;
+    }
+
     const events = [
-      { name: "ISS Overhead Pass", time: getUpcomingPassTime(20, 42, 5), detail: `Visible flyby crossing at ${Math.round(35 + absLat * 0.4)}° max elevation.`, icon: "🛰️", detailType: "cosmic_satellites" },
+      { name: "ISS Overhead Pass", time: issPassTime, detail: issPassDetail, icon: "🛰️", detailType: "cosmic_satellites" },
       { name: showerName, time: `Peak active tonight`, detail: `Observing rate estimated around ${actualZhr} shooting stars per hour.`, icon: "☄️", detailType: "cosmic_meteor" },
       { name: "Venus-Jupiter Conjunction", time: getUpcomingPlanetaryConjunction(), detail: "Planetary close alignment. Exceptionally bright in southern sky.", icon: "🪐", detailType: "cosmic_timeline_event" }
     ];
