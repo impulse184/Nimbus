@@ -1074,33 +1074,20 @@ function renderWeather(cur, fcast, uvData, aqiData) {
 }
 
 /* ─── Temperature helpers ───────────────────────────────────── */
-function getTodayHighLowFromForecast(fcastList, timezoneOffsetSec = 0) {
-  if (!fcastList || fcastList.length === 0) return null;
-  
-  const now = Date.now();
-  const localTimeInCity = new Date(now + (timezoneOffsetSec * 1000));
-  const cityYear = localTimeInCity.getUTCFullYear();
-  const cityMonth = localTimeInCity.getUTCMonth();
-  const cityDate = localTimeInCity.getUTCDate();
+function getTodayHighLowFromForecast(fcastList, timezoneOffsetSec = 0, currentTemp = null) {
+  if (!fcastList || fcastList.length === 0) {
+    return currentTemp !== null ? { minTemp: currentTemp, maxTemp: currentTemp } : null;
+  }
   
   const temps = [];
+  if (currentTemp !== null) {
+    temps.push(currentTemp);
+  }
   
-  fcastList.forEach(item => {
-    const itemLocalDate = new Date((item.dt + timezoneOffsetSec) * 1000);
-    const itemYear = itemLocalDate.getUTCFullYear();
-    const itemMonth = itemLocalDate.getUTCMonth();
-    const itemDate = itemLocalDate.getUTCDate();
-    
-    if (itemYear === cityYear && itemMonth === cityMonth && itemDate === cityDate) {
-      temps.push(item.main.temp);
-    }
-  });
-  
-  if (temps.length === 0) {
-    const limit = Math.min(8, fcastList.length);
-    for (let i = 0; i < limit; i++) {
-      temps.push(fcastList[i].main.temp);
-    }
+  // Use first 8 items representing next 24 hours
+  const limit = Math.min(8, fcastList.length);
+  for (let i = 0; i < limit; i++) {
+    temps.push(fcastList[i].main.temp);
   }
   
   return {
@@ -1117,7 +1104,7 @@ function updateTemps(cur) {
   let tempMin = cur.main.temp_min;
   
   if (currentForecastData && currentForecastData.list) {
-    const range = getTodayHighLowFromForecast(currentForecastData.list, cur.timezone);
+    const range = getTodayHighLowFromForecast(currentForecastData.list, cur.timezone, cur.main.temp);
     if (range) {
       tempMax = range.maxTemp;
       tempMin = range.minTemp;
@@ -1332,7 +1319,15 @@ function renderForecast(list) {
   const el   = document.getElementById('forecastList');
 
   el.innerHTML = days.map((day, i) => {
-    const temps = day.items.map(x => x.main.temp);
+    let temps;
+    if (i === 0) {
+      temps = list.slice(0, 8).map(x => x.main.temp);
+      if (currentWeatherData) {
+        temps.push(currentWeatherData.main.temp);
+      }
+    } else {
+      temps = day.items.map(x => x.main.temp);
+    }
     const hi  = Math.max(...temps);
     const lo  = Math.min(...temps);
     const pop = Math.max(...day.items.map(x => x.pop || 0));
@@ -2222,7 +2217,7 @@ function renderCompare() {
     let tempMax = d.main.temp_max;
     let tempMin = d.main.temp_min;
     if (fc && fc.list) {
-      const range = getTodayHighLowFromForecast(fc.list, d.timezone);
+      const range = getTodayHighLowFromForecast(fc.list, d.timezone, d.main.temp);
       if (range) {
         tempMax = range.maxTemp;
         tempMin = range.minTemp;
@@ -3274,7 +3269,7 @@ function openStatDetail(type, sourceCard) {
       let tempMax = cur.main.temp_max;
       let tempMin = cur.main.temp_min;
       if (currentForecastData && currentForecastData.list) {
-        const range = getTodayHighLowFromForecast(currentForecastData.list, cur.timezone);
+        const range = getTodayHighLowFromForecast(currentForecastData.list, cur.timezone, cur.main.temp);
         if (range) {
           tempMax = range.maxTemp;
           tempMin = range.minTemp;
@@ -4227,7 +4222,15 @@ function openForecastDetail(dayIndex, sourceCard) {
   const dayItems = days[dayIndex];
   if (!dayItems || !dayItems.length) return;
 
-  const temps   = dayItems.map(x => x.main.temp);
+  let temps;
+  if (dayIndex === 0) {
+    temps = currentForecastData.list.slice(0, 8).map(x => x.main.temp);
+    if (currentWeatherData) {
+      temps.push(currentWeatherData.main.temp);
+    }
+  } else {
+    temps = dayItems.map(x => x.main.temp);
+  }
   const hi      = Math.max(...temps), lo = Math.min(...temps);
   const hD      = isCelsius ? hi : toF(hi), lD = isCelsius ? lo : toF(lo);
   const u       = isCelsius ? '°C' : '°F';
