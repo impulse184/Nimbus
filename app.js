@@ -1074,11 +1074,58 @@ function renderWeather(cur, fcast, uvData, aqiData) {
 }
 
 /* ─── Temperature helpers ───────────────────────────────────── */
+function getTodayHighLowFromForecast(fcastList, timezoneOffsetSec = 0) {
+  if (!fcastList || fcastList.length === 0) return null;
+  
+  const now = Date.now();
+  const localTimeInCity = new Date(now + (timezoneOffsetSec * 1000));
+  const cityYear = localTimeInCity.getUTCFullYear();
+  const cityMonth = localTimeInCity.getUTCMonth();
+  const cityDate = localTimeInCity.getUTCDate();
+  
+  const temps = [];
+  
+  fcastList.forEach(item => {
+    const itemLocalDate = new Date((item.dt + timezoneOffsetSec) * 1000);
+    const itemYear = itemLocalDate.getUTCFullYear();
+    const itemMonth = itemLocalDate.getUTCMonth();
+    const itemDate = itemLocalDate.getUTCDate();
+    
+    if (itemYear === cityYear && itemMonth === cityMonth && itemDate === cityDate) {
+      temps.push(item.main.temp);
+    }
+  });
+  
+  if (temps.length === 0) {
+    const limit = Math.min(8, fcastList.length);
+    for (let i = 0; i < limit; i++) {
+      temps.push(fcastList[i].main.temp);
+    }
+  }
+  
+  return {
+    minTemp: Math.min(...temps),
+    maxTemp: Math.max(...temps)
+  };
+}
+
 function updateTemps(cur) {
   const t  = isCelsius ? cur.main.temp    : toF(cur.main.temp);
   const fl = isCelsius ? cur.main.feels_like : toF(cur.main.feels_like);
-  const hi = isCelsius ? cur.main.temp_max   : toF(cur.main.temp_max);
-  const lo = isCelsius ? cur.main.temp_min   : toF(cur.main.temp_min);
+  
+  let tempMax = cur.main.temp_max;
+  let tempMin = cur.main.temp_min;
+  
+  if (currentForecastData && currentForecastData.list) {
+    const range = getTodayHighLowFromForecast(currentForecastData.list, cur.timezone);
+    if (range) {
+      tempMax = range.maxTemp;
+      tempMin = range.minTemp;
+    }
+  }
+
+  const hi = isCelsius ? tempMax : toF(tempMax);
+  const lo = isCelsius ? tempMin : toF(tempMin);
   const u  = isCelsius ? '°C' : '°F';
 
   document.getElementById('tempMain').textContent      = Math.round(t);
@@ -2164,12 +2211,24 @@ function renderCompare() {
   // Hero cards
   ['A','B'].forEach(side => {
     const d   = side === 'A' ? a : b;
+    const fc  = side === 'A' ? cmpFcA : cmpFcB;
     const el  = document.getElementById(`cmpHero${side}`);
     const t   = cv(d.main.temp);
     const fl  = cv(d.main.feels_like);
     const isCmpNight = isNightTime(d.sys.sunrise, d.sys.sunset, d.dt);
     const icon = weatherEmoji(d.weather[0].id, isCmpNight);
     const desc = d.weather[0].description;
+    
+    let tempMax = d.main.temp_max;
+    let tempMin = d.main.temp_min;
+    if (fc && fc.list) {
+      const range = getTodayHighLowFromForecast(fc.list, d.timezone);
+      if (range) {
+        tempMax = range.maxTemp;
+        tempMin = range.minTemp;
+      }
+    }
+    
     el.innerHTML = `
       <span class="cmp-badge ${side.toLowerCase()}">${side === 'A' ? 'City A' : 'City B'}</span>
       <div style="display:flex;align-items:flex-start;justify-content:space-between">
@@ -2188,7 +2247,7 @@ function renderCompare() {
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary)">
         <span>Feels ${fl}${u}</span>
-        <span>H:${cv(d.main.temp_max)}${u} L:${cv(d.main.temp_min)}${u}</span>
+        <span>H:${cv(tempMax)}${u} L:${cv(tempMin)}${u}</span>
         <span>💧${d.main.humidity}%</span>
         <span>💨${d.wind.speed.toFixed(1)} m/s</span>
       </div>`;
@@ -3212,8 +3271,17 @@ function openStatDetail(type, sourceCard) {
       const desc = cur.weather[0].description;
       const t = Math.round(isCelsius ? cur.main.temp : toF(cur.main.temp));
       const feels = Math.round(isCelsius ? cur.main.feels_like : toF(cur.main.feels_like));
-      const highTemp = Math.round(isCelsius ? cur.main.temp_max : toF(cur.main.temp_max));
-      const lowTemp = Math.round(isCelsius ? cur.main.temp_min : toF(cur.main.temp_min));
+      let tempMax = cur.main.temp_max;
+      let tempMin = cur.main.temp_min;
+      if (currentForecastData && currentForecastData.list) {
+        const range = getTodayHighLowFromForecast(currentForecastData.list, cur.timezone);
+        if (range) {
+          tempMax = range.maxTemp;
+          tempMin = range.minTemp;
+        }
+      }
+      const highTemp = Math.round(isCelsius ? tempMax : toF(tempMax));
+      const lowTemp = Math.round(isCelsius ? tempMin : toF(tempMin));
       
       setModalTheme('#60a5fa', 'rgba(96,165,250,0.5)', 'linear-gradient(135deg, rgba(96,165,250,0.25), rgba(167,139,250,0.15))');
       detailIcon.textContent     = icon;
