@@ -5224,9 +5224,9 @@ function renderAstroPage() {
       meteorDesc.textContent = meteorForecast.detail;
       if (meteorBadge) {
         meteorBadge.textContent = "UPCOMING";
-        meteorBadge.style.color = "#c084fc";
-        meteorBadge.style.background = "rgba(192, 132, 252, 0.12)";
-        meteorBadge.style.borderColor = "rgba(192, 132, 252, 0.3)";
+        meteorBadge.style.color = "#ebd5ff";
+        meteorBadge.style.background = "rgba(233, 213, 255, 0.18)";
+        meteorBadge.style.borderColor = "rgba(233, 213, 255, 0.35)";
       }
     } else if (observingQuality === "Poor") {
       meteorDesc.textContent = `☁️ Overcast skies will make shower observation highly difficult tonight. Constellations completely hidden.`;
@@ -5333,9 +5333,9 @@ function renderAstroPage() {
 
       starlinkTimeText.textContent = `${getUpcomingPassTime(22, 15, 7)} (4m dur)`;
       starlinkElText.textContent = `${Math.round(20 + absLat * 0.2)}° Elev`;
-      starlinkElText.style.color = "#c084fc";
-      starlinkElText.style.background = "rgba(192, 132, 252, 0.12)";
-      starlinkElText.style.borderColor = "rgba(192, 132, 252, 0.3)";
+      starlinkElText.style.color = "#ebd5ff";
+      starlinkElText.style.background = "rgba(233, 213, 255, 0.18)";
+      starlinkElText.style.borderColor = "rgba(233, 213, 255, 0.35)";
     }
   }
 
