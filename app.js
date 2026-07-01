@@ -3104,8 +3104,8 @@ function animateVisuals() {
   if (baroNeedle) {
     const targetDeg = parseFloat(baroNeedle.dataset.deg) || 0;
     gsap.fromTo(baroNeedle,
-      { rotation: -90, transformOrigin: '90px 122px' },
-      { rotation: targetDeg, transformOrigin: '90px 122px', duration: 1.4, ease: 'elastic.out(1, 0.65)' }
+      { rotation: -90, svgOrigin: '90 122' },
+      { rotation: targetDeg, svgOrigin: '90 122', duration: 1.4, ease: 'elastic.out(1, 0.65)' }
     );
   }
 
