@@ -2881,8 +2881,8 @@ body.weather-snow .city-chip  { color:#1e293b; }
   100% { transform: scale(0.9); opacity: 0.6; }
 }
 
-
-
-
-
-
+/* Disable CSS Transitions temporarily for GSAP performance */
+.no-transition,
+.no-transition * {
+  transition: none !important;
+}

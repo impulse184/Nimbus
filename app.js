@@ -402,9 +402,7 @@ function goHomeVisual() {
   const tabRadarAstro = document.getElementById('tabRadarAstro');
   if (tabRadarAstro) tabRadarAstro.style.display = 'none';
   
-  document.getElementById('pagWeather').style.display = '';
-  document.getElementById('pagCompare').style.display = 'none';
-  document.getElementById('pagRadarAstro').style.display = 'none';
+  switchTabPage('weather', true);
   
   // 2. Hide weather details content, errors, and warning alerts ticker, show welcome screen
   if (weatherContent) weatherContent.style.display = 'none';
@@ -1523,15 +1521,10 @@ function spawnMoon() {
     </div>
   `;
   particles.appendChild(moon);
-  anime({
-    targets: moon,
-    translateX: [100, 0],
-    translateY: [-50, 0],
-    scale: [0.5, 1],
-    opacity: [0, 1],
-    duration: 1800,
-    easing: 'easeOutElastic(1, 0.85)'
-  });
+  gsap.fromTo(moon, 
+    { x: 100, y: -50, scale: 0.5, opacity: 0 },
+    { x: 0, y: 0, scale: 1, opacity: 1, duration: 1.8, ease: 'elastic.out(1, 0.85)' }
+  );
 }
 
 function spawnSun() {
@@ -1543,15 +1536,10 @@ function spawnSun() {
     <div class="sun-body-floating"></div>
   `;
   particles.appendChild(sun);
-  anime({
-    targets: sun,
-    translateX: [100, 0],
-    translateY: [-50, 0],
-    scale: [0.5, 1],
-    opacity: [0, 1],
-    duration: 1800,
-    easing: 'easeOutElastic(1, 0.85)'
-  });
+  gsap.fromTo(sun, 
+    { x: 100, y: -50, scale: 0.5, opacity: 0 },
+    { x: 0, y: 0, scale: 1, opacity: 1, duration: 1.8, ease: 'elastic.out(1, 0.85)' }
+  );
 }
 
 function spawnHeatShimmer() {
@@ -2053,6 +2041,105 @@ function spawnHeatLinesOverlay(count) {
 /* ═══════════════════════════════════════════════════════════════
    NAV TABS
 ═══════════════════════════════════════════════════════════════ */
+function switchTabPage(target, immediate = false) {
+  const pages = {
+    'weather': document.getElementById('pagWeather'),
+    'compare': document.getElementById('pagCompare'),
+    'radar-astro': document.getElementById('pagRadarAstro')
+  };
+  const targetPage = pages[target];
+  if (!targetPage) return;
+
+  let activePage = null;
+  for (const key in pages) {
+    if (pages[key] && pages[key].style.display !== 'none') {
+      activePage = pages[key];
+      break;
+    }
+  }
+
+  if (activePage === targetPage) {
+    if (target === 'radar-astro') {
+      renderAstroPage();
+      startAstroUpdates();
+    }
+    return;
+  }
+
+  if (immediate) {
+    for (const key in pages) {
+      if (pages[key]) {
+        pages[key].style.display = key === target ? '' : 'none';
+        gsap.killTweensOf(pages[key]);
+        gsap.set(pages[key], { opacity: 1, y: 0 });
+      }
+    }
+    if (target === 'radar-astro') {
+      renderAstroPage();
+      startAstroUpdates();
+    } else {
+      stopAstroUpdates();
+    }
+    return;
+  }
+
+  if (activePage) {
+    gsap.killTweensOf(activePage);
+    gsap.to(activePage, {
+      opacity: 0,
+      y: -15,
+      duration: 0.25,
+      ease: 'power2.inOut',
+      onComplete: () => {
+        activePage.style.display = 'none';
+        showTargetPage();
+      }
+    });
+  } else {
+    showTargetPage();
+  }
+
+  function showTargetPage() {
+    targetPage.style.display = '';
+    gsap.killTweensOf(targetPage);
+    
+    gsap.set(targetPage, { opacity: 0, y: 15 });
+    
+    if (target === 'radar-astro') {
+      renderAstroPage();
+      startAstroUpdates();
+      
+      const cards = targetPage.querySelectorAll('.cosmic-card-wrap, .cosmic-subcard, .astro-card-wrap');
+      gsap.fromTo(cards, 
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power3.out' }
+      );
+    } else {
+      stopAstroUpdates();
+    }
+    
+    if (target === 'compare') {
+      const cards = targetPage.querySelectorAll('.cmp-hero-card, .cmp-metrics, .cmp-chart-wrap');
+      gsap.fromTo(cards, 
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power3.out' }
+      );
+    }
+    
+    gsap.to(targetPage, {
+      opacity: 1,
+      y: 0,
+      duration: 0.4,
+      ease: 'power3.out',
+      onComplete: () => {
+        if (target === 'weather') {
+          animateDashboardEntrance();
+        }
+      }
+    });
+  }
+}
+
 function initNavTabs() {
   const activeTab = document.querySelector('.nav-tab.active');
   if (activeTab) {
@@ -2067,16 +2154,7 @@ function initNavTabs() {
       updateTabIndicator(tab, false);
       
       const target = tab.dataset.tab;
-      document.getElementById('pagWeather').style.display = target === 'weather' ? '' : 'none';
-      document.getElementById('pagCompare').style.display = target === 'compare'  ? '' : 'none';
-      document.getElementById('pagRadarAstro').style.display = target === 'radar-astro' ? '' : 'none';
-
-      if (target === 'radar-astro') {
-        renderAstroPage();
-        startAstroUpdates();
-      } else {
-        stopAstroUpdates();
-      }
+      switchTabPage(target, false);
     });
   });
 
@@ -2501,6 +2579,9 @@ function openDetailVisual(sourceCard) {
 
   detailOverlay.classList.add('open');
   
+  gsap.killTweensOf(detailModal);
+  gsap.killTweensOf(detailOverlay);
+
   if (sourceCard) {
     const first = sourceCard.getBoundingClientRect();
     
@@ -2517,59 +2598,38 @@ function openDetailVisual(sourceCard) {
     
     detailModal.style.transformOrigin = '0 0';
     
-    anime.remove(detailModal);
-    anime.remove(detailOverlay);
-    
-    anime({
-      targets: detailModal,
-      translateX: [deltaX, 0],
-      translateY: [deltaY, 0],
-      scaleX: [deltaW, 1],
-      scaleY: [deltaH, 1],
-      opacity: [0.3, 1],
-      duration: 500,
-      easing: 'cubicBezier(0.34, 1.56, 0.64, 1)',
-      complete: () => {
-        detailModal.style.transformOrigin = '';
-        detailModal.style.transform = '';
-        updateModalScrollFade();
+    gsap.fromTo(detailModal,
+      { x: deltaX, y: deltaY, scaleX: deltaW, scaleY: deltaH, opacity: 0.3 },
+      { x: 0, y: 0, scaleX: 1, scaleY: 1, opacity: 1,
+        duration: 0.5, ease: 'back.out(1.4)',
+        onComplete: () => {
+          detailModal.style.transformOrigin = '';
+          gsap.set(detailModal, { clearProps: 'transform' });
+          updateModalScrollFade();
+        }
       }
-    });
+    );
     
-    anime({
-      targets: detailOverlay,
-      backgroundColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.65)'],
-      opacity: [0, 1],
-      duration: 350,
-      easing: 'easeOutQuad'
-    });
+    gsap.fromTo(detailOverlay,
+      { backgroundColor: 'rgba(0,0,0,0)', opacity: 0 },
+      { backgroundColor: 'rgba(0,0,0,0.65)', opacity: 1, duration: 0.35, ease: 'power2.out' }
+    );
   } else {
     // fallback if no sourceCard
-    anime.remove(detailModal);
-    anime.remove(detailOverlay);
-    
-    detailModal.style.transform = 'scale(0.92) translateY(24px)';
-    detailModal.style.opacity = '0';
-    
-    anime({
-      targets: detailModal,
-      scale: 1,
-      translateY: 0,
-      opacity: 1,
-      duration: 400,
-      easing: 'cubicBezier(0.25, 1, 0.5, 1)',
-      complete: () => {
-        updateModalScrollFade();
+    gsap.fromTo(detailModal,
+      { scale: 0.92, y: 24, opacity: 0 },
+      { scale: 1, y: 0, opacity: 1, duration: 0.4, ease: 'power3.out',
+        onComplete: () => {
+          gsap.set(detailModal, { clearProps: 'transform' });
+          updateModalScrollFade();
+        }
       }
-    });
+    );
     
-    anime({
-      targets: detailOverlay,
-      backgroundColor: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.65)'],
-      opacity: [0, 1],
-      duration: 350,
-      easing: 'easeOutQuad'
-    });
+    gsap.fromTo(detailOverlay,
+      { backgroundColor: 'rgba(0,0,0,0)', opacity: 0 },
+      { backgroundColor: 'rgba(0,0,0,0.65)', opacity: 1, duration: 0.35, ease: 'power2.out' }
+    );
   }
 }
 
@@ -2581,6 +2641,21 @@ function openDetail(sourceCard) {
 function closeDetailVisual() {
   stopDeviceCompass();
   
+  gsap.killTweensOf(detailModal);
+  gsap.killTweensOf(detailOverlay);
+  
+  const onCloseComplete = () => {
+    detailOverlay.style.display = 'none';
+    detailOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+    activeSourceCard = null;
+    detailModal.style.transformOrigin = '';
+    gsap.set(detailModal, { clearProps: 'all' });
+    detailModal.classList.remove('summary-large');
+    const shareContainer = document.getElementById('detailShareContainer');
+    if (shareContainer) shareContainer.style.display = 'none';
+  };
+
   if (activeSourceCard) {
     const current = detailModal.getBoundingClientRect();
     const last = activeSourceCard.getBoundingClientRect();
@@ -2592,70 +2667,23 @@ function closeDetailVisual() {
     
     detailModal.style.transformOrigin = '0 0';
     
-    anime.remove(detailModal);
-    anime.remove(detailOverlay);
-    
-    anime({
-      targets: detailModal,
-      translateX: targetX,
-      translateY: targetY,
-      scaleX: targetW,
-      scaleY: targetH,
-      opacity: 0,
-      duration: 400,
-      easing: 'cubicBezier(0.25, 1, 0.5, 1)',
-      complete: () => {
-        detailOverlay.style.display = 'none';
-        detailOverlay.classList.remove('open');
-        document.body.style.overflow = '';
-        activeSourceCard = null;
-        detailModal.style.transformOrigin = '';
-        detailModal.style.transform = '';
-        detailModal.classList.remove('summary-large');
-        const shareContainer = document.getElementById('detailShareContainer');
-        if (shareContainer) shareContainer.style.display = 'none';
-      }
-    });
-    
-    anime({
-      targets: detailOverlay,
-      backgroundColor: 'rgba(0,0,0,0)',
-      opacity: 0,
-      duration: 300,
-      easing: 'easeInQuad'
+    gsap.to(detailModal, {
+      x: targetX, y: targetY, scaleX: targetW, scaleY: targetH, opacity: 0,
+      duration: 0.4, ease: 'power3.out',
+      onComplete: onCloseComplete
     });
   } else {
-    // fallback
-    anime.remove(detailModal);
-    anime.remove(detailOverlay);
-    
-    anime({
-      targets: detailModal,
-      scale: 0.92,
-      translateY: 15,
-      opacity: 0,
-      duration: 300,
-      easing: 'cubicBezier(0.25, 1, 0.5, 1)',
-      complete: () => {
-        detailOverlay.style.display = 'none';
-        detailOverlay.classList.remove('open');
-        document.body.style.overflow = '';
-        activeSourceCard = null;
-        detailModal.style.transform = '';
-        detailModal.classList.remove('summary-large');
-        const shareContainer = document.getElementById('detailShareContainer');
-        if (shareContainer) shareContainer.style.display = 'none';
-      }
-    });
-    
-    anime({
-      targets: detailOverlay,
-      backgroundColor: 'rgba(0,0,0,0)',
-      opacity: 0,
-      duration: 300,
-      easing: 'easeInQuad'
+    gsap.to(detailModal, {
+      scale: 0.92, y: 15, opacity: 0,
+      duration: 0.3, ease: 'power3.out',
+      onComplete: onCloseComplete
     });
   }
+  
+  gsap.to(detailOverlay, {
+    backgroundColor: 'rgba(0,0,0,0)', opacity: 0,
+    duration: 0.3, ease: 'power2.in'
+  });
 }
 
 function closeDetail() {
@@ -3051,11 +3079,10 @@ function animateVisuals() {
     const strokeDasharray = parseFloat(arc.getAttribute('stroke-dasharray')) || 339.292;
     const targetOffset = parseFloat(arc.dataset.offset) || 0;
     arc.style.strokeDashoffset = strokeDasharray;
-    anime({
-      targets: arc,
+    gsap.to(arc, {
       strokeDashoffset: targetOffset,
-      duration: 1200,
-      easing: 'easeOutElastic(1, 0.75)'
+      duration: 1.2,
+      ease: 'elastic.out(1, 0.75)'
     });
   }
 
@@ -3065,11 +3092,10 @@ function animateVisuals() {
     const strokeDasharray = parseFloat(baroFill.getAttribute('stroke-dasharray')) || 226.195;
     const targetOffset = parseFloat(baroFill.dataset.offset) || 0;
     baroFill.style.strokeDashoffset = strokeDasharray;
-    anime({
-      targets: baroFill,
+    gsap.to(baroFill, {
       strokeDashoffset: targetOffset,
-      duration: 1200,
-      easing: 'easeOutElastic(1, 0.75)'
+      duration: 1.2,
+      ease: 'elastic.out(1, 0.75)'
     });
   }
 
@@ -3077,13 +3103,10 @@ function animateVisuals() {
   const baroNeedle = document.getElementById('baroNeedle');
   if (baroNeedle) {
     const targetDeg = parseFloat(baroNeedle.dataset.deg) || 0;
-    baroNeedle.style.transform = `rotate(-90deg)`;
-    anime({
-      targets: baroNeedle,
-      transform: [`rotate(-90deg)`, `rotate(${targetDeg}deg)`],
-      duration: 1400,
-      easing: 'easeOutElastic(1, 0.65)'
-    });
+    gsap.fromTo(baroNeedle,
+      { rotation: -90 },
+      { rotation: targetDeg, duration: 1.4, ease: 'elastic.out(1, 0.65)' }
+    );
   }
 
   // 4. Horizon bar fill
@@ -3091,11 +3114,10 @@ function animateVisuals() {
   if (hf) {
     const targetPct = parseFloat(hf.dataset.pct) || 0;
     hf.style.width = '0%';
-    anime({
-      targets: hf,
+    gsap.to(hf, {
       width: targetPct + '%',
-      duration: 1100,
-      easing: 'easeOutElastic(1, 0.8)'
+      duration: 1.1,
+      ease: 'elastic.out(1, 0.8)'
     });
   }
 
@@ -3104,11 +3126,10 @@ function animateVisuals() {
   if (vf) {
     const targetPct = parseFloat(vf.dataset.pct) || 0;
     vf.style.width = '0%';
-    anime({
-      targets: vf,
+    gsap.to(vf, {
       width: targetPct + '%',
-      duration: 1100,
-      easing: 'easeOutElastic(1, 0.8)'
+      duration: 1.1,
+      ease: 'elastic.out(1, 0.8)'
     });
   }
 
@@ -3117,11 +3138,10 @@ function animateVisuals() {
   if (rgf) {
     const targetPct = parseFloat(rgf.dataset.pct) || 0;
     rgf.style.height = '0%';
-    anime({
-      targets: rgf,
+    gsap.to(rgf, {
       height: (targetPct * 100) + '%',
-      duration: 1200,
-      easing: 'easeOutElastic(1, 0.75)'
+      duration: 1.2,
+      ease: 'elastic.out(1, 0.75)'
     });
   }
 
@@ -3130,11 +3150,10 @@ function animateVisuals() {
   if (df) {
     const targetY = parseFloat(df.dataset.y) || 12;
     df.setAttribute('y', '130');
-    anime({
-      targets: df,
-      y: targetY,
-      duration: 1200,
-      easing: 'easeOutElastic(1, 0.75)'
+    gsap.to(df, {
+      attr: { y: targetY },
+      duration: 1.2,
+      ease: 'elastic.out(1, 0.75)'
     });
   }
 
@@ -3144,11 +3163,10 @@ function animateVisuals() {
     const strokeDasharray = parseFloat(sf.getAttribute('stroke-dasharray')) || 392.699;
     const targetOffset = parseFloat(sf.dataset.offset) || 0;
     sf.style.strokeDashoffset = strokeDasharray;
-    anime({
-      targets: sf,
+    gsap.to(sf, {
       strokeDashoffset: targetOffset,
-      duration: 1500,
-      easing: 'easeOutElastic(1, 0.85)'
+      duration: 1.5,
+      ease: 'elastic.out(1, 0.85)'
     });
   }
 
@@ -3156,28 +3174,23 @@ function animateVisuals() {
   const bn = document.getElementById('bigNeedle');
   if (bn) {
     const deg = parseFloat(bn.dataset.deg) || 0;
-    bn.style.transform = `translate(-50%,-100%) rotate(0deg)`;
-    anime({
-      targets: bn,
-      transform: [`translate(-50%,-100%) rotate(0deg)`, `translate(-50%,-100%) rotate(${deg}deg)`],
-      duration: 1500,
-      easing: 'easeOutElastic(1, 0.6)'
-    });
+    gsap.fromTo(bn,
+      { transform: 'translate(-50%,-100%) rotate(0deg)' },
+      { transform: `translate(-50%,-100%) rotate(${deg}deg)`, duration: 1.5, ease: 'elastic.out(1, 0.6)' }
+    );
   }
   
   // 10. AQI bands fill
   const bandFills = document.querySelectorAll('.aqi-band-fill');
-  bandFills.forEach(fill => {
-    const targetPct = parseFloat(fill.dataset.pct) || 0;
-    fill.style.width = '0%';
-    anime({
-      targets: fill,
-      width: targetPct + '%',
-      duration: 1000,
-      delay: anime.stagger(80),
-      easing: 'easeOutElastic(1, 0.8)'
+  if (bandFills.length > 0) {
+    bandFills.forEach(fill => fill.style.width = '0%');
+    gsap.to(bandFills, {
+      width: (index, target) => (parseFloat(target.dataset.pct) || 0) + '%',
+      duration: 1.0,
+      stagger: 0.08,
+      ease: 'elastic.out(1, 0.8)'
     });
-  });
+  }
 }
 
 /* ── Wind direction name ── */
@@ -5440,43 +5453,39 @@ function updateTabIndicator(activeTab, immediate) {
   const relativeWidth = tabRect.width;
   
   if (immediate) {
-    indicator.style.left = `${relativeLeft}px`;
-    indicator.style.width = `${relativeWidth}px`;
-    indicator.style.transform = 'scaleX(1)';
+    gsap.killTweensOf(indicator);
+    gsap.set(indicator, {
+      left: relativeLeft,
+      width: relativeWidth,
+      scaleX: 1
+    });
   } else {
-    anime.remove(indicator);
+    gsap.killTweensOf(indicator);
     const currentLeft = parseFloat(indicator.style.left) || 0;
     const currentWidth = parseFloat(indicator.style.width) || tabRect.width;
     const direction = relativeLeft > currentLeft ? 'right' : 'left';
     
+    const tl = gsap.timeline({ defaults: { ease: 'power2.inOut' } });
     if (direction === 'right') {
-      anime.timeline({
-        targets: indicator,
-        easing: 'cubicBezier(0.4, 0, 0.2, 1)'
-      })
-      .add({
+      tl.to(indicator, {
         width: relativeLeft + relativeWidth - currentLeft,
-        duration: 180,
+        duration: 0.18
       })
-      .add({
+      .to(indicator, {
         left: relativeLeft,
         width: relativeWidth,
-        duration: 180,
-      }, '-=60');
+        duration: 0.18
+      }, '-=0.06');
     } else {
-      anime.timeline({
-        targets: indicator,
-        easing: 'cubicBezier(0.4, 0, 0.2, 1)'
-      })
-      .add({
+      tl.to(indicator, {
         left: relativeLeft,
         width: currentLeft + currentWidth - relativeLeft,
-        duration: 180,
+        duration: 0.18
       })
-      .add({
+      .to(indicator, {
         width: relativeWidth,
-        duration: 180,
-      }, '-=60');
+        duration: 0.18
+      }, '-=0.06');
     }
   }
 }
@@ -5492,26 +5501,25 @@ function animateDashboardEntrance() {
     ...document.querySelectorAll('.forecast-section')
   ].filter(el => el && el.style.display !== 'none');
   
-  elements.forEach(el => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(30px) scale(0.96)';
-  });
+  elements.forEach(el => el.classList.add('no-transition'));
   
-  anime({
-    targets: elements,
-    translateY: [30, 0],
-    scale: [0.96, 1],
-    opacity: [0, 1],
-    delay: anime.stagger(60, { start: 100 }),
-    duration: 800,
-    easing: 'cubicBezier(0.25, 1, 0.5, 1)',
-    complete: () => {
-      elements.forEach(el => {
-        el.style.transform = '';
-        el.style.opacity = '';
-      });
+  gsap.killTweensOf(elements);
+  
+  gsap.fromTo(elements,
+    { y: 30, scale: 0.96, opacity: 0 },
+    {
+      y: 0,
+      scale: 1,
+      opacity: 1,
+      duration: 0.8,
+      stagger: 0.06,
+      ease: 'power3.out',
+      clearProps: 'transform,opacity',
+      onComplete: () => {
+        elements.forEach(el => el.classList.remove('no-transition'));
+      }
     }
-  });
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════
