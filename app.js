@@ -3997,74 +3997,129 @@ function openStatDetail(type, sourceCard) {
       const absLat = Math.abs(lat);
       const clouds = cur.clouds.all;
       const visibleCount = clouds > 80 ? 0 : clouds > 45 ? 1 : 2;
+      const satType = (sourceCard && sourceCard.dataset.activeSat) || 'iss';
 
-      let isLive = false;
-      let issDistance = null;
-      if (issCache) {
-        issDistance = calculateDistance(lat, lon, issCache.lat, issCache.lon);
-        isLive = true;
-      }
+      // Set high-contrast lavender theme
+      setModalTheme('#c084fc', 'rgba(192,132,252,0.5)', 'linear-gradient(135deg, rgba(192,132,252,0.25), rgba(168,85,247,0.15))');
 
-      setModalTheme('#8b5cf6', 'rgba(139,92,246,0.5)', 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(168,85,247,0.15))');
-      detailIcon.textContent     = '🛰️';
-      detailTitle.textContent    = 'Low Earth Orbit Telemetry';
-      detailSubtitle.innerHTML = `Spacecraft passes & orbit coordinates` + (isLive ? ` <span class="live-indicator" style="margin-left: 8px;"><span class="live-dot"></span>Live</span>` : '');
-      detailMainVal.textContent  = isLive ? `ISS ${issDistance.toLocaleString()} km Away` : `${visibleCount} Spacecraft Visible`;
+      if (satType === 'starlink') {
+        const passTime = getUpcomingPassTime(22, 15, 7);
+        const estEl = Math.round(20 + absLat * 0.2);
 
-      detailVisual.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
-          <svg width="120" height="120" viewBox="0 0 100 100" style="background:#090514; border-radius:50%; border:2px stroke rgba(139,92,246,0.2); filter: drop-shadow(0 0 16px rgba(139,92,246,0.3));">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(139,92,246,0.15)" stroke-width="1" />
-            <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(139,92,246,0.1)" stroke-width="1" />
-            <circle cx="50" cy="50" r="15" fill="none" stroke="rgba(139,92,246,0.1)" stroke-width="1" />
-            <line x1="50" y1="5" x2="50" y2="95" stroke="rgba(139,92,246,0.1)" stroke-width="1" />
-            <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(139,92,246,0.1)" stroke-width="1" />
-            <line x1="50" y1="50" x2="70" y2="15" stroke="#a855f7" stroke-width="2" stroke-linecap="round" />
-            <circle cx="35" cy="28" r="3" fill="#10b981" />
-            <circle cx="68" cy="72" r="2.5" fill="#3b82f6" />
-          </svg>
-          <div style="font-size:12px; font-weight:700; color:#8b5cf6;">📡 Radar Sweeping LEO Lanes...</div>
-        </div>
-      `;
+        detailIcon.textContent     = '🛸';
+        detailTitle.textContent    = 'Starlink Chain Telemetry';
+        detailSubtitle.innerHTML = `Starlink satellite train passes & orbit tracking`;
+        detailMainVal.textContent  = visibleCount === 0 ? 'Obscured by Clouds' : `Pass: ${passTime}`;
 
-      if (isLive) {
-        let estEl = Math.round(90 - (issDistance / 35));
-        estEl = Math.max(0, Math.min(estEl, 90));
+        detailVisual.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+            <svg width="120" height="120" viewBox="0 0 100 100" style="background:#090514; border-radius:50%; border:2px stroke rgba(192,132,252,0.2); filter: drop-shadow(0 0 16px rgba(192,132,252,0.3));">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(192,132,252,0.15)" stroke-width="1" />
+              <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <circle cx="50" cy="50" r="15" fill="none" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <line x1="50" y1="5" x2="50" y2="95" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <line x1="20" y1="80" x2="80" y2="20" stroke="rgba(192,132,252,0.3)" stroke-width="1.5" stroke-dasharray="2,2" />
+              <circle cx="35" cy="65" r="2.5" fill="#c084fc" />
+              <circle cx="42" cy="58" r="2.5" fill="#c084fc" />
+              <circle cx="50" cy="50" r="3" fill="#c084fc" />
+              <circle cx="58" cy="42" r="2.5" fill="#c084fc" />
+              <circle cx="65" cy="35" r="2.5" fill="#c084fc" />
+            </svg>
+            <div style="font-size:12px; font-weight:700; color:#c084fc;">📡 Tracking Starlink Train...</div>
+          </div>
+        `;
 
         detailStats.innerHTML =
-          pill('ISS Distance', issDistance.toLocaleString() + ' km', 0) +
-          pill('ISS Elevation', estEl + '° Elev', 1) +
-          pill('ISS Velocity', Math.round(issCache.vel).toLocaleString() + ' km/h', 2) +
-          pill('ISS Altitude', Math.round(issCache.alt) + ' km', 3) +
-          pill('ISS Latitude', issCache.lat.toFixed(2) + '°', 4) +
-          pill('ISS Longitude', issCache.lon.toFixed(2) + '°', 5);
+          pill('Next Pass', passTime, 0) +
+          pill('Elevation', estEl + '° Elev', 1) +
+          pill('Pass Duration', '4m 00s', 2) +
+          pill('Altitude', '550 km', 3) +
+          pill('Inclination', '53.0°', 4) +
+          pill('Chain Size', '22 visible', 5);
+        detailStats.style.gridTemplateColumns = '';
+
+        detailInsight.innerHTML = `
+          <div style="font-size:12.5px; opacity:0.8; line-height:1.45; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+            ℹ️ <strong>Starlink</strong> is a satellite constellation operated by SpaceX in Low Earth Orbit (LEO) providing global satellite Internet access. Satellites are launched in batches of 20-60 and appear as a tightly spaced "train" of lights across the night sky.
+          </div>
+          A Starlink train pass is expected at <strong>${passTime}</strong> with an elevation of <strong>${estEl}°</strong>. ${
+            clouds > 75 
+              ? '☁️ Overcast skies are blockading lines of sight, preventing visible sightings of the satellite train.' 
+              : '✨ Clear skies forecast! The satellite chain will appear as a glowing train of stars moving sequentially across the sky.'
+          }
+        `;
       } else {
-        detailStats.innerHTML =
-          pill('Next ISS Pass', '9:42 PM', 0) +
-          pill('ISS Elevation', Math.round(35 + absLat * 0.4) + '° Elev', 1) +
-          pill('Pass Duration', '5m 24s', 2) +
-          pill('Starlink Chain', '11:15 PM', 3) +
-          pill('LEO Altitude', '420 - 550 km', 4) +
-          pill('Orbital Speed', '7.66 km/s', 5);
-      }
-      detailStats.style.gridTemplateColumns = '';
-
-      detailInsight.innerHTML = `
-        <div style="font-size:12.5px; opacity:0.8; line-height:1.45; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
-          ℹ️ Spacecraft in <strong>Low Earth Orbit (LEO)</strong> fly at altitudes under 2,000 km, traveling at speeds around 27,600 km/h (completing an orbit every 90 minutes).
-        </div>
-        ${isLive 
-          ? `The International Space Station (ISS) is currently tracked live over coordinates <strong>${issCache.lat.toFixed(2)}°, ${issCache.lon.toFixed(2)}°</strong> at an altitude of <strong>${Math.round(issCache.alt)} km</strong>. It is exactly <strong>${issDistance.toLocaleString()} km</strong> away from you. ${
-              visibleCount === 0 ? '☁️ Unfortunately, local cloud cover blocks optical line of sight.' :
-              issDistance < 2000 ? '✨ Excellent visibility! The ISS is currently in range and visible to the naked eye as a bright star gliding overhead.' :
-              '📡 The station is currently below your horizon. Keep tracking to watch it pass closer.'
-            }`
-          : `The International Space Station (ISS) is executing an orbit pass tonight at <strong>9:42 PM</strong>. ${
-              visibleCount === 0 ? '☁️ Dense cloud cover blocks overhead optical lines. ISS passes are unfortunately obscured.' :
-              '✨ High visibility forecast! The solar arrays of the ISS will reflect sunset light, appearing as an exceptionally bright star gliding across the sky.'
-            }`
+        let isLive = false;
+        let issDistance = null;
+        let issDirection = "";
+        if (issCache) {
+          issDistance = calculateDistance(lat, lon, issCache.lat, issCache.lon);
+          const bearing = calculateBearing(lat, lon, issCache.lat, issCache.lon);
+          issDirection = getCompassDirection(bearing);
+          isLive = true;
         }
-      `;
+
+        detailIcon.textContent     = '🛰️';
+        detailTitle.textContent    = 'ISS Orbit Telemetry';
+        detailSubtitle.innerHTML = `International Space Station telemetry` + (isLive ? ` <span class="live-indicator" style="margin-left: 8px;"><span class="live-dot"></span>Live</span>` : '');
+        detailMainVal.textContent  = isLive ? `ISS ${issDistance.toLocaleString()} km Away` : `${visibleCount} Spacecraft Visible`;
+
+        detailVisual.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+            <svg width="120" height="120" viewBox="0 0 100 100" style="background:#090514; border-radius:50%; border:2px stroke rgba(192,132,252,0.2); filter: drop-shadow(0 0 16px rgba(192,132,252,0.3));">
+              <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(192,132,252,0.15)" stroke-width="1" />
+              <circle cx="50" cy="50" r="30" fill="none" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <circle cx="50" cy="50" r="15" fill="none" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <line x1="50" y1="5" x2="50" y2="95" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <line x1="5" y1="50" x2="95" y2="50" stroke="rgba(192,132,252,0.1)" stroke-width="1" />
+              <line x1="50" y1="50" x2="70" y2="15" stroke="#c084fc" stroke-width="2" stroke-linecap="round" />
+              <circle cx="35" cy="28" r="3" fill="#10b981" />
+              <circle cx="68" cy="72" r="2.5" fill="#3b82f6" />
+            </svg>
+            <div style="font-size:12px; font-weight:700; color:#c084fc;">📡 Radar Sweeping LEO Lanes...</div>
+          </div>
+        `;
+
+        if (isLive) {
+          let estEl = Math.round(90 - (issDistance / 35));
+          estEl = Math.max(0, Math.min(estEl, 90));
+
+          detailStats.innerHTML =
+            pill('ISS Distance', issDistance.toLocaleString() + ' km', 0) +
+            pill('General Direction', 'Look ' + issDirection, 1) +
+            pill('ISS Elevation', estEl + '° Elev', 2) +
+            pill('ISS Velocity', Math.round(issCache.vel).toLocaleString() + ' km/h', 3) +
+            pill('ISS Latitude', issCache.lat.toFixed(2) + '°', 4) +
+            pill('ISS Longitude', issCache.lon.toFixed(2) + '°', 5);
+        } else {
+          detailStats.innerHTML =
+            pill('Next ISS Pass', '9:42 PM', 0) +
+            pill('ISS Elevation', Math.round(35 + absLat * 0.4) + '° Elev', 1) +
+            pill('Pass Duration', '5m 24s', 2) +
+            pill('Starlink Pass', '11:15 PM', 3) +
+            pill('LEO Altitude', '420 - 550 km', 4) +
+            pill('Orbital Speed', '7.66 km/s', 5);
+        }
+        detailStats.style.gridTemplateColumns = '';
+
+        detailInsight.innerHTML = `
+          <div style="font-size:12.5px; opacity:0.8; line-height:1.45; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+            ℹ️ Spacecraft in <strong>Low Earth Orbit (LEO)</strong> fly at altitudes under 2,000 km, traveling at speeds around 27,600 km/h (completing an orbit every 90 minutes).
+          </div>
+          ${isLive 
+            ? `The International Space Station (ISS) is currently tracked live over coordinates <strong>${issCache.lat.toFixed(2)}°, ${issCache.lon.toFixed(2)}°</strong> at an altitude of <strong>${Math.round(issCache.alt)} km</strong>. It is exactly <strong>${issDistance.toLocaleString()} km</strong> away from you in the <strong>${issDirection}</strong> direction. ${
+                visibleCount === 0 ? '☁️ Unfortunately, local cloud cover blocks optical line of sight.' :
+                issDistance < 2000 ? '✨ Excellent visibility! The ISS is currently in range and visible to the naked eye. Look ' + issDirection + ' to see it gliding overhead.' :
+                '📡 The station is currently below your horizon. Keep tracking to watch it pass closer.'
+              }`
+            : `The International Space Station (ISS) is executing an orbit pass tonight at <strong>9:42 PM</strong>. ${
+                visibleCount === 0 ? '☁️ Dense cloud cover blocks overhead optical lines. ISS passes are unfortunately obscured.' :
+                '✨ High visibility forecast! The solar arrays of the ISS will reflect sunset light, appearing as an exceptionally bright star gliding across the sky.'
+              }`
+          }
+        `;
+      }
       break;
     }
     case 'cosmic_stargazing': {
@@ -4169,15 +4224,21 @@ function openStatDetail(type, sourceCard) {
           ℹ️ <strong>Auroras</strong> occur when electrons and protons from the sun flow down Earth's magnetic lines and collide with high-altitude atmospheric gas atoms, creating photon emissions.
         </div>
         Geomagnetic latitude is <strong>${absLat.toFixed(1)}°</strong>. The aurora probability is <strong>${visibleProb}%</strong>. ${
-          clouds > 70 ? '☁️ Even if auroral activity is active overhead, dense overcast sky blockage hides emission flares.' :
-          visibleProb >= 40 ? '✨ Excellent aurora potential tonight! Look low on the northern horizon, away from city lights, to photograph green and purple glowing auroral arches.' :
-          '🌌 Geomagnetic activity is calm at this latitude. Auroral oval is confined to high arctic latitudes.'
+          absLat < 35 
+            ? '🌌 Auroras are not visible at this low latitude due to no geomagnetic activity reaching this region. The auroral oval is confined to high polar latitudes.' 
+            : (clouds > 70 
+                ? '☁️ Even if auroral activity is active overhead, dense overcast sky blockage hides emission flares.' 
+                : (visibleProb >= 40 
+                    ? '✨ Excellent aurora potential tonight! Look low on the northern horizon, away from city lights, to photograph green and purple glowing auroral arches.' 
+                    : '🌌 Geomagnetic activity is calm at this latitude. Auroral oval is confined to high arctic latitudes.'
+                  )
+              )
         }
       `;
       break;
     }
     case 'cosmic_timeline_event': {
-      setModalTheme('#a855f7', 'rgba(168,85,247,0.5)', 'linear-gradient(135deg, rgba(168,85,247,0.25), rgba(139,92,246,0.15))');
+      setModalTheme('#c084fc', 'rgba(192,132,252,0.5)', 'linear-gradient(135deg, rgba(192,132,252,0.25), rgba(139,92,246,0.15))');
       detailIcon.textContent     = '🌌';
       detailTitle.textContent    = 'Stellar Highlight Event';
       detailSubtitle.textContent = 'Celestial conjuncture calendar details';
@@ -4185,13 +4246,13 @@ function openStatDetail(type, sourceCard) {
 
       detailVisual.innerHTML = `
         <div style="display:flex; flex-direction:column; align-items:center; gap:16px;">
-          <svg width="120" height="120" viewBox="0 0 100 100" style="filter: drop-shadow(0 0 16px rgba(168,85,247,0.45));">
-            <circle cx="30" cy="50" r="10" fill="#a855f7" />
+          <svg width="120" height="120" viewBox="0 0 100 100" style="filter: drop-shadow(0 0 16px rgba(192,132,252,0.45));">
+            <circle cx="30" cy="50" r="10" fill="#c084fc" />
             <circle cx="70" cy="50" r="6" fill="#3b82f6" />
             <line x1="30" y1="50" x2="70" y2="50" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-dasharray="4,4" />
             <circle cx="50" cy="50" r="2" fill="#fff" />
           </svg>
-          <div style="font-size:12px; font-weight:700; color:#a855f7;">Stellar Planetary Alignment</div>
+          <div style="font-size:12px; font-weight:700; color:#c084fc;">Stellar Planetary Alignment</div>
         </div>
       `;
 
@@ -4503,7 +4564,7 @@ document.getElementById('aqiCard').addEventListener('click', () => {
 
         <!-- Section 4: Primary Pollutants Overview -->
         <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:10px; padding:10px 14px;">
-          <div style="font-weight:700; color:#a855f7; margin-bottom:4px; display:flex; align-items:center; gap:6px;">🔬 Pollutant Focus</div>
+          <div style="font-weight:700; color:#c084fc; margin-bottom:4px; display:flex; align-items:center; gap:6px;">🔬 Pollutant Focus</div>
           <div>
             <strong>PM2.5:</strong> Fine inhalable particles (size &le; 2.5 &mu;m) that bypass nasal filtration, penetrating deep into the pulmonary alveoli and directly entering the bloodstream.
             ${pm10 ? `<br><strong>PM10:</strong> Coarse inhalable dust, pollen, and mold particles that accumulate in the upper respiratory tract.` : ''}
@@ -4633,12 +4694,19 @@ function setupCosmicClickListeners() {
   }
   const cosmicSat = document.getElementById('cosmicSatCard');
   if (cosmicSat) {
-    cosmicSat.addEventListener('click', () => {
-      if (currentWeatherData) openStatDetail('cosmic_satellites', cosmicSat);
+    cosmicSat.addEventListener('click', (e) => {
+      if (!currentWeatherData) return;
+      const row = e.target.closest('.cosmic-sat-row');
+      const satType = row ? (row.dataset.satType || 'iss') : 'iss';
+      cosmicSat.dataset.activeSat = satType;
+      openStatDetail('cosmic_satellites', cosmicSat);
     });
     cosmicSat.addEventListener('keydown', e => {
       if ((e.key === 'Enter' || e.key === ' ') && currentWeatherData) {
         e.preventDefault();
+        const row = e.target.closest('.cosmic-sat-row');
+        const satType = row ? (row.dataset.satType || 'iss') : 'iss';
+        cosmicSat.dataset.activeSat = satType;
         openStatDetail('cosmic_satellites', cosmicSat);
       }
     });
@@ -4821,6 +4889,29 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return Math.round(R * c);
+}
+
+// Compass bearing calculator between two lat/lon coordinates
+function calculateBearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  
+  const y = Math.sin(dLon) * Math.cos(phi2);
+  const x = Math.cos(phi1) * Math.sin(phi2) - Math.sin(phi1) * Math.cos(phi2) * Math.cos(dLon);
+  let bearing = Math.atan2(y, x) * 180 / Math.PI;
+  bearing = (bearing + 360) % 360; // normalize to 0-360
+  return bearing;
+}
+
+// Translate 0-360 degree bearing to compass direction string
+function getCompassDirection(bearing) {
+  const directions = [
+    'North', 'Northeast', 'East', 'Southeast', 
+    'South', 'Southwest', 'West', 'Northwest'
+  ];
+  const index = Math.round(bearing / 45) % 8;
+  return directions[index];
 }
 
 // Major annual meteor showers calculator based on active dates and current day
@@ -5133,9 +5224,9 @@ function renderAstroPage() {
       meteorDesc.textContent = meteorForecast.detail;
       if (meteorBadge) {
         meteorBadge.textContent = "UPCOMING";
-        meteorBadge.style.color = "#a855f7";
-        meteorBadge.style.background = "rgba(168, 85, 247, 0.12)";
-        meteorBadge.style.borderColor = "rgba(168, 85, 247, 0.3)";
+        meteorBadge.style.color = "#c084fc";
+        meteorBadge.style.background = "rgba(192, 132, 252, 0.12)";
+        meteorBadge.style.borderColor = "rgba(192, 132, 252, 0.3)";
       }
     } else if (observingQuality === "Poor") {
       meteorDesc.textContent = `☁️ Overcast skies will make shower observation highly difficult tonight. Constellations completely hidden.`;
@@ -5166,9 +5257,12 @@ function renderAstroPage() {
 
   let isLiveIss = false;
   let issDistance = null;
+  let issDirection = "";
 
   if (issCache) {
     issDistance = calculateDistance(lat, lon, issCache.lat, issCache.lon);
+    const bearing = calculateBearing(lat, lon, issCache.lat, issCache.lon);
+    issDirection = getCompassDirection(bearing);
     isLiveIss = true;
   }
 
@@ -5216,7 +5310,7 @@ function renderAstroPage() {
       starlinkElText.style.borderColor = "rgba(239, 68, 68, 0.3)";
     } else {
       if (isLiveIss) {
-        issTimeText.textContent = `ISS distance: ${issDistance.toLocaleString()} km away (velocity: ${Math.round(issCache.vel).toLocaleString()} km/h)`;
+        issTimeText.textContent = `ISS distance: ${issDistance.toLocaleString()} km away (Look ${issDirection})`;
         let estEl = Math.round(90 - (issDistance / 35));
         estEl = Math.max(0, Math.min(estEl, 90));
         issElText.textContent = `${estEl}° Elev`;
@@ -5239,9 +5333,9 @@ function renderAstroPage() {
 
       starlinkTimeText.textContent = `${getUpcomingPassTime(22, 15, 7)} (4m dur)`;
       starlinkElText.textContent = `${Math.round(20 + absLat * 0.2)}° Elev`;
-      starlinkElText.style.color = "#a855f7";
-      starlinkElText.style.background = "rgba(168, 85, 247, 0.12)";
-      starlinkElText.style.borderColor = "rgba(168, 85, 247, 0.3)";
+      starlinkElText.style.color = "#c084fc";
+      starlinkElText.style.background = "rgba(192, 132, 252, 0.12)";
+      starlinkElText.style.borderColor = "rgba(192, 132, 252, 0.3)";
     }
   }
 
@@ -5288,11 +5382,12 @@ function renderAstroPage() {
   } else if (absLat >= 35 && absLat < 45) {
     auroraProb = 5 + Math.random() * 15;
   } else {
-    auroraProb = Math.random() * 3;
+    auroraProb = 0;
   }
   
   let kpScale = 0.5 + (kp / 9) * 0.8;
-  const visibleProb = Math.round(Math.min(auroraProb * kpScale, 100) * (1 - clouds / 100));
+  let visibleProb = Math.round(Math.min(auroraProb * kpScale, 100) * (1 - clouds / 100));
+  if (absLat < 35) visibleProb = 0;
 
   const auroraProbVal = document.getElementById('auroraProbVal');
   const auroraProbBar = document.getElementById('auroraProbBar');
@@ -5303,14 +5398,16 @@ function renderAstroPage() {
     auroraProbBar.style.width = `${visibleProb}%`;
     
     let statusTxt = "";
-    if (clouds > 75) {
+    if (absLat < 35) {
+      statusTxt = "🌌 Auroras are not visible at this latitude due to lack of geomagnetic activity reaching this region.";
+    } else if (clouds > 75) {
       statusTxt = "☁️ Sky is heavily overcast. Aurora sights are blocked by dense clouds.";
     } else if (visibleProb >= 50) {
       statusTxt = "✨ High geomagnetic solar wind activity! Perfect dark clear skies, excellent aurora potential.";
     } else if (visibleProb >= 20) {
       statusTxt = "🟢 Moderate aurora potential. Look low towards the horizon in dark, rural areas.";
     } else {
-      statusTxt = "🌌 Solar activity calm. Sight chances are nominal. Focus on deep space telescope observations.";
+      statusTxt = "🔭 Solar activity calm. Sight chances are nominal. Focus on deep space telescope observations.";
     }
     auroraStatusDesc.textContent = statusTxt;
   }
